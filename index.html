@@ -1,0 +1,2888 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Аквариум 4K — Коралловый риф</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+            font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            background-color: #031526;
+            color: #f8fafc;
+        }
+
+        #app {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Верхняя панель управления — компактная 3-колоночная сетка с отступом под крестик iOS */
+        #top-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: max(8px, env(safe-area-inset-top)) 8px 6px 50px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: start;
+            gap: 4px;
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        @media (min-width: 640px) {
+            #top-hud {
+                padding: 10px 14px 6px 14px;
+            }
+        }
+
+        .hud-side-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            pointer-events: auto;
+            min-width: 0;
+        }
+
+        .hud-side-col.left {
+            align-items: flex-start;
+        }
+
+        .hud-side-col.right {
+            align-items: flex-end;
+        }
+
+        .hud-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .stat-pill {
+            background: rgba(8, 25, 48, 0.9);
+            border: 1.5px solid rgba(56, 189, 248, 0.45);
+            backdrop-filter: blur(6px);
+            height: 28px;
+            padding: 0 6px;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+            white-space: nowrap;
+        }
+
+        .top-tool-btn {
+            background: rgba(10, 30, 58, 0.92);
+            border: 1.5px solid rgba(59, 130, 246, 0.55);
+            color: #cbd5e1;
+            height: 29px;
+            min-width: 29px;
+            padding: 0 6px;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.15s, background 0.15s;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+            white-space: nowrap;
+        }
+
+        .top-tool-btn:active {
+            transform: scale(0.93);
+        }
+
+        .top-tool-btn.active {
+            background: rgba(2, 132, 199, 0.94);
+            border-color: #7dd3fc;
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+        }
+
+        /* Красный прямоугольник — кнопка-кормушка по центру сверху */
+        #feeder-box {
+            pointer-events: auto;
+            background: linear-gradient(180deg, rgba(225, 29, 72, 0.94), rgba(159, 18, 57, 0.96));
+            border: 2px solid #fda4af;
+            border-radius: 12px;
+            padding: 5px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(225, 29, 72, 0.5), inset 0 2px 6px rgba(255, 255, 255, 0.35);
+            transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1);
+            white-space: nowrap;
+        }
+
+        #feeder-box:active, #feeder-box.tapped {
+            transform: scale(0.91) translateY(3px);
+            box-shadow: 0 2px 10px rgba(225, 29, 72, 0.7);
+        }
+
+        .feeder-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0.2px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .feeder-sub {
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #ffe4e6;
+            opacity: 0.95;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Всплывающие монетки */
+        .coin-toast {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.92);
+            border: 2px solid #facc15;
+            color: #facc15;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            pointer-events: none;
+            z-index: 35;
+            box-shadow: 0 4px 12px rgba(250, 204, 21, 0.4);
+            animation: popAndFloat 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes popAndFloat {
+            0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -14px) scale(1.06); }
+            80% { opacity: 1; transform: translate(-50%, -34px) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -48px) scale(0.9); }
+        }
+
+        .seg-bar {
+            display: flex;
+            gap: 3px;
+            background: #071322;
+            padding: 3px;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            width: 106px;
+        }
+        .seg-block {
+            height: 9px;
+            flex: 1;
+            border-radius: 2px;
+            background: #1e293b;
+            transition: background-color 0.2s;
+        }
+
+        .trait-line {
+            position: relative;
+            height: 3px;
+            background: #334155;
+            border-radius: 2px;
+            flex: 1;
+            margin: 0 8px;
+        }
+        .trait-dot {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #38bdf8;
+            box-shadow: 0 0 6px #38bdf8;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: 1.5px solid #7dd3fc;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 7px 11px;
+            border-radius: 10px;
+            transition: transform 0.1s, opacity 0.15s;
+            cursor: pointer;
+        }
+        .action-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .action-btn:disabled {
+            background: #1e293b;
+            border-color: #334155;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+        .custom-scroll {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            overscroll-behavior: contain;
+        }
+        .custom-scroll * {
+            touch-action: pan-y;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #071322; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+        <div id="top-hud">
+            <!-- Левая колонка -->
+            <div class="hud-side-col left">
+                <div class="hud-row">
+                    <div class="stat-pill border-yellow-400/80 text-yellow-300" title="Монетки">
+                        <span>🪙</span>
+                        <span id="coin-count">60</span>
+                    </div>
+                    <div class="stat-pill text-emerald-300" title="Чистота стёкол">
+                        <span>🧼</span>
+                        <span id="clean-percent">100%</span>
+                    </div>
+                    <div class="stat-pill text-lime-300 hidden md:flex" title="Высота водорослей">
+                        <span>🌿</span>
+                        <span id="kelp-cm-hud">2.5 см</span>
+                    </div>
+                </div>
+
+                <div class="hud-row">
+                    <button data-mode="hand" class="mode-btn top-tool-btn active" title="Инфо о рыбке / Постучать">
+                        <span>👆</span>
+                    </button>
+                    <button data-mode="trim" class="mode-btn top-tool-btn" title="Подстричь водоросли (+25🪙)">
+                        <span>✂️</span>
+                    </button>
+                    <button data-mode="clean" class="mode-btn top-tool-btn" title="Помыть стёкла (+15🪙)">
+                        <span>🧽</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ЦЕНТРАЛЬНАЯ КРАСНАЯ КОРМУШКА -->
+            <button id="feeder-box" title="Постучи сюда или по кормушке на воде!">
+                <div class="feeder-title">
+                    <span>🥫</span>
+                    <span>КОРМУШКА</span>
+                </div>
+                <div class="feeder-sub">Постучи сюда! 👇</div>
+            </button>
+
+            <!-- Правая колонка -->
+            <div class="hud-side-col right">
+                <div class="hud-row">
+                    <button id="btn-light" class="top-tool-btn" title="День / Ночь">
+                        <span>☀️</span>
+                    </button>
+                    <button id="btn-open-fishes" class="top-tool-btn border-emerald-400/60 text-emerald-200" title="Все рыбки">
+                        <span>🐠</span> <span id="hud-fish-counter">4/20</span>
+                    </button>
+                </div>
+
+                <div class="hud-row">
+                    <button id="btn-gyro" class="top-tool-btn border-cyan-400/60 text-cyan-200" title="Гироскоп (наклон телефона)">
+                        <span>🧭</span>
+                    </button>
+                    <button id="btn-open-hub" class="top-tool-btn border-amber-400/70 text-amber-200" title="Магазин и настройки">
+                        <span>⚙️</span> <span>Меню</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Игровой 3D Холст 4K -->
+        <div id="canvas-wrapper">
+            <canvas id="aqCanvas"></canvas>
+
+            <!-- Карточка выбранной рыбки -->
+            <div id="fish-card" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-[420px] bg-[#081b33]/95 border-2 border-[#38bdf8] rounded-2xl p-4 z-30 shadow-2xl backdrop-blur-md">
+                <div class="flex justify-between items-center border-b border-slate-700/80 pb-2.5 mb-3">
+                    <div class="flex items-center gap-1.5">
+                        <button id="btn-prev-fish" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 rounded-lg px-2 py-0.5 text-xs font-bold">◀</button>
+                        <span id="card-fish-icon" class="text-xl">🐠</span>
+                        <h2 id="card-fish-name" class="text-white font-black text-base tracking-wide">МИРА</h2>
+                        <button id="btn-rename-fish" class="text-sm text-slate-300 hover:text-cyan-300 px-1" title="Сменить имя">✏️</button>
+                        <button id="btn-next-fish" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 rounded-lg px-2 py-0.5 text-xs font-bold">▶</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="card-fish-index" class="text-xs text-slate-400 font-bold">1/4</span>
+                        <button id="btn-close-card" class="bg-rose-500/80 hover:bg-rose-500 text-white rounded-full w-7 h-7 font-bold flex items-center justify-center text-sm">✕</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl px-3 py-2 mb-3 flex flex-wrap justify-between items-center text-xs gap-2">
+                    <div>
+                        <span class="text-slate-400">Стадия:</span>
+                        <b id="card-fish-stage" class="text-amber-300 ml-1">Малёк</b>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Животик:</span>
+                        <b id="card-fish-stomach" class="text-emerald-300 ml-1">Сыта (85%)</b>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-200 font-semibold">🍔 Сытость</span>
+                            <div class="seg-bar" id="bar-hunger"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-200 font-semibold">⚡ Бодрость</span>
+                            <div class="seg-bar" id="bar-energy"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-200 font-semibold">🫧 Покой</span>
+                            <div class="seg-bar" id="bar-calm"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs text-slate-200 font-semibold">❤️ Дружба</span>
+                            <div class="seg-bar" id="bar-trust"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col justify-between h-full space-y-2.5 bg-slate-900/75 p-3 rounded-xl border border-slate-800">
+                        <div class="space-y-2 text-[11px] text-slate-300">
+                            <div class="flex items-center justify-between">
+                                <span>🌿 Тихая</span>
+                                <div class="trait-line"><div id="trait-speed" class="trait-dot" style="left: 60%;"></div></div>
+                                <span>Шустрая 🚀</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span>👻 Робкая</span>
+                                <div class="trait-line"><div id="trait-brave" class="trait-dot" style="left: 40%;"></div></div>
+                                <span>Смелая 🦁</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span>🐚 Сама</span>
+                                <div class="trait-line"><div id="trait-social" class="trait-dot" style="left: 75%;"></div></div>
+                                <span>Стайная 🐠</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-1.5 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+                            <span>Возраст: <b id="card-fish-age" class="text-cyan-300">1 дн.</b></span>
+                            <span id="card-fish-status" class="text-emerald-400 font-bold">Счастлива</span>
+                        </div>
+
+                        <button id="btn-card-more" class="action-btn w-full text-center">Все рыбки и магазин</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Системное окно: Рыбки / Магазин / Настройки -->
+            <div id="system-modal" class="hidden absolute inset-2 sm:inset-6 bg-[#08182e]/98 border-2 border-[#38bdf8] rounded-2xl z-30 flex flex-col justify-between p-3 sm:p-5 shadow-2xl overflow-hidden">
+                <div class="flex-1 custom-scroll pr-1 space-y-3" id="modal-content-area">
+                    
+                    <!-- ВКЛАДКА 1: МОИ РЫБКИ -->
+                    <div id="tab-fishes" class="space-y-3">
+                        <div class="flex flex-wrap justify-between items-center border-b border-slate-700 pb-2 gap-2">
+                            <div>
+                                <h3 class="text-sm sm:text-base font-black text-cyan-300">🐠 ОБИТАТЕЛИ АКВАРИУМА (<span id="roster-count">4</span>/20)</h3>
+                                <p class="text-[11px] text-slate-300 mt-0.5">Мальки наедаются 2–3 гранулами, взрослые — 5–6 гранулами. Сытая рыбка не переедает!</p>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button id="btn-scroll-up" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 px-2.5 py-1 rounded-lg text-xs font-bold">▲ Вверх</button>
+                                <button id="btn-scroll-down" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 px-2.5 py-1 rounded-lg text-xs font-bold">▼ Вниз</button>
+                            </div>
+                        </div>
+
+                        <div id="residents-list" class="custom-scroll space-y-2 max-h-[240px] sm:max-h-[290px] pr-1 pb-2"></div>
+
+                        <div class="bg-slate-900/95 border border-slate-700 rounded-xl p-3 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-2xl">🐡</span>
+                                <div>
+                                    <div class="text-xs font-black text-amber-300">НОВАЯ ЯРКАЯ РЫБКА (МАЛЁК)</div>
+                                    <div class="text-[11px] text-slate-400">Запустить новую рыбку в 3D-риф (вырастет за 3 дня)</div>
+                                </div>
+                            </div>
+                            <button id="btn-buy-fish-roster" class="action-btn shrink-0">+ 75 🪙</button>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 2: МАГАЗИН И УЛУЧШЕНИЯ -->
+                    <div id="tab-upgrades" class="hidden space-y-3.5">
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                            <h3 class="text-sm sm:text-base font-black text-cyan-300">🏆 МАГАЗИН И УЛУЧШЕНИЯ РИФА</h3>
+                            <span class="text-xs text-slate-400">Реальное время</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div class="bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="text-2xl">🌿</span>
+                                    <div>
+                                        <div class="text-xs font-black text-emerald-400">ВОДОРОСЛИ</div>
+                                        <div class="text-[11px] text-slate-300">Кустов: <b id="kelp-count-label" class="text-white">16</b> | Высота: <b id="kelp-avg-cm" class="text-lime-400">2.5 см</b></div>
+                                        <div class="text-[10px] text-slate-400">Растут ~1 см/сутки. Стрижка дает +25 🪙</div>
+                                    </div>
+                                </div>
+                                <button id="btn-buy-kelp" class="action-btn shrink-0">+ 40 🪙</button>
+                            </div>
+
+                            <div class="bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="text-2xl">🐠</span>
+                                    <div>
+                                        <div class="text-xs font-black text-amber-300">НОВЫЙ МАЛЁК</div>
+                                        <div class="text-[11px] text-slate-300">Рыбок: <b id="fish-count-label" class="text-white">4</b> из 20</div>
+                                        <div class="text-[10px] text-slate-400">Яркие цихлиды, зебры и голубые дельфины</div>
+                                    </div>
+                                </div>
+                                <button id="btn-buy-fish" class="action-btn shrink-0">+ 75 🪙</button>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-700 pt-2.5">
+                            <div class="text-xs font-black text-yellow-300 mb-2">ОБОРУДОВАНИЕ, УЛИТКИ И ДЕКОР РИФА</div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <button id="upg-filter" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col items-center gap-1 transition">
+                                    <span class="text-2xl">🐌</span>
+                                    <span class="text-xs font-bold text-slate-100">Улитки <span id="lvl-filter" class="text-cyan-400">Ур.1</span></span>
+                                    <span class="text-[10px] text-slate-400 text-center">Больше улиток на всех 4 стёклах</span>
+                                    <span id="cost-filter" class="text-xs font-black text-yellow-400 mt-1">50 🪙</span>
+                                </button>
+
+                                <button id="upg-fertilizer" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col items-center gap-1 transition">
+                                    <span class="text-2xl">🧪</span>
+                                    <span class="text-xs font-bold text-slate-100">Подкормка <span id="lvl-fert" class="text-emerald-400">Ур.1</span></span>
+                                    <span class="text-[10px] text-slate-400 text-center">Ускоряет рост травы (+25%/ур)</span>
+                                    <span id="cost-fert" class="text-xs font-black text-yellow-400 mt-1">60 🪙</span>
+                                </button>
+
+                                <button id="upg-food" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col items-center gap-1 transition">
+                                    <span class="text-2xl">🍤</span>
+                                    <span class="text-xs font-bold text-slate-100">Кормушка <span id="lvl-food" class="text-amber-400">Ур.1</span></span>
+                                    <span class="text-[10px] text-slate-400 text-center">Сытнее гранулы и больше монет</span>
+                                    <span id="cost-food" class="text-xs font-black text-yellow-400 mt-1">80 🪙</span>
+                                </button>
+
+                                <button id="upg-decor" class="bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl p-2.5 flex flex-col items-center gap-1 transition">
+                                    <span class="text-2xl">⛵</span>
+                                    <span class="text-xs font-bold text-slate-100">Кораблик <span id="lvl-decor" class="text-purple-400">Ур.1</span></span>
+                                    <span class="text-[10px] text-slate-400 text-center">Быстрее дружба и уют рифа</span>
+                                    <span id="cost-decor" class="text-xs font-black text-yellow-400 mt-1">100 🪙</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 3: ОПЦИИ И ВРЕМЯ -->
+                    <div id="tab-settings" class="hidden space-y-3">
+                        <h3 class="text-sm sm:text-base font-black text-cyan-300 border-b border-slate-700 pb-2">⚙️ НАСТРОЙКИ И РЕАЛЬНОЕ ВРЕМЯ</h3>
+                        
+                        <div class="space-y-2.5 text-xs">
+                            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+                                <div>
+                                    <div class="font-bold text-white">Живой аквариум (офлайн-прогресс)</div>
+                                    <div class="text-[11px] text-slate-400">Трава растет на ~1 см в сутки, рыбки проголодаются за 10–15 часов. Время идёт даже при закрытой вкладке!</div>
+                                </div>
+                                <span class="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500 text-emerald-300 rounded-lg text-[10px] font-bold shrink-0">АКТИВНО</span>
+                            </div>
+
+                            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+                                <div>
+                                    <div class="font-bold text-amber-300">Перемотка времени (+6 часов)</div>
+                                    <div class="text-[11px] text-slate-400">Чтобы сразу снова покормить рыбок или подстричь траву</div>
+                                </div>
+                                <button id="btn-skip-time" class="action-btn shrink-0 !bg-amber-500 !border-amber-200 !text-slate-950">+6 ЧАСОВ ⏩</button>
+                            </div>
+
+                            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+                                <div>
+                                    <div class="font-bold text-white">Звуки воды и кормушки</div>
+                                    <div class="text-[11px] text-slate-400">Приятное бульканье, стук по кормушке и звон монет</div>
+                                </div>
+                                <button id="btn-toggle-sound" class="action-btn shrink-0">ВКЛ 🔊</button>
+                            </div>
+
+                            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center gap-2">
+                                <div>
+                                    <div class="font-bold text-rose-400">Сбросить прогресс</div>
+                                    <div class="text-[11px] text-slate-400">Начать аквариум заново</div>
+                                </div>
+                                <button id="btn-reset-save" class="action-btn shrink-0 !bg-rose-600 !border-rose-300">СБРОСИТЬ</button>
+                            </div>
+
+                            <div id="reset-confirm-box" class="hidden bg-rose-950/90 border-2 border-rose-500 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2">
+                                <span class="text-xs text-rose-200 font-bold">Точно очистить аквариум и начать с начала?</span>
+                                <div class="flex gap-2">
+                                    <button id="btn-confirm-reset-yes" class="action-btn !bg-rose-600 !border-white">ДА, СБРОСИТЬ</button>
+                                    <button id="btn-confirm-reset-no" class="action-btn">ОТМЕНА</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Нижние вкладки внутри модального окна -->
+                <div class="pt-3 border-t border-slate-700 grid grid-cols-4 gap-2 mt-2">
+                    <button id="nav-fishes" class="action-btn text-center">🐠 Рыбки</button>
+                    <button id="nav-upgrades" class="action-btn text-center !bg-slate-800">🏆 Магазин</button>
+                    <button id="nav-settings" class="action-btn text-center !bg-slate-800">⚙️ Опции</button>
+                    <button id="nav-close" class="action-btn text-center !bg-rose-600 !border-rose-300">✕ Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('aqCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvas-wrapper');
+
+        const SAVE_KEY = 'zoo_reef_aquarium_4k_v2';
+        const SECONDS_PER_DAY = 86400;
+        const WATER_TOP_Y = 76;
+        const WALLS = ['front', 'right', 'back', 'left'];
+
+        const FISH_PALETTES = [
+            { body: '#2563eb', light: '#60a5fa', dark: '#1e3a8a', fin: '#3b82f6', stripe: '#1d4ed8', glow: 'rgba(59, 130, 246, 0.35)' },
+            { body: '#eab308', light: '#fef08a', dark: '#854d0e', fin: '#facc15', stripe: '#ca8a04', glow: 'rgba(250, 204, 21, 0.35)' },
+            { body: '#f43f5e', light: '#fda4af', dark: '#881337', fin: '#fb7185', stripe: '#e11d48', glow: 'rgba(251, 113, 133, 0.35)' },
+            { body: '#cbd5e1', light: '#ffffff', dark: '#64748b', fin: '#93c5fd', stripe: '#94a3b8', glow: 'rgba(226, 232, 240, 0.35)' },
+            { body: '#0ea5e9', light: '#7dd3fc', dark: '#0c4a6e', fin: '#38bdf8', stripe: '#0369a1', glow: 'rgba(56, 189, 248, 0.35)' },
+            { body: '#f97316', light: '#fed7aa', dark: '#7c2d12', fin: '#fb923c', stripe: '#c2410c', glow: 'rgba(251, 146, 60, 0.35)' },
+            { body: '#94a3b8', light: '#e2e8f0', dark: '#334155', fin: '#cbd5e1', stripe: '#1e293b', glow: 'rgba(148, 163, 184, 0.3)', zebra: true }
+        ];
+
+        const DEFAULT_NAMES = ['МИРА', 'ДЕЛЬФИН', 'ЗОЛОТИНКА', 'КОРАЛЛ', 'НЕМО', 'БУЛЬКА', 'ЛУЧИК', 'ЖЕМЧУГ', 'ЗЕБРА', 'КАПЛЯ', 'ИСКРА', 'РИФИК', 'ЛАЗУРЬ', 'ЯНТАРЬ', 'ВОЛНА', 'АСТРА', 'БАРСИК', 'ПЕРСИК', 'КНОПКА', 'ЗВЕЗДА'];
+
+        // --- ЗВУКОВОЙ СИНТЕЗАТОР ---
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!state.soundEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'feeder') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(280, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.08);
+                    gain.gain.setValueAtTime(0.32, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'plop') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(360, now);
+                    osc.frequency.exponentialRampToValueAtTime(720, now + 0.09);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.09);
+                    osc.start(now);
+                    osc.stop(now + 0.09);
+                } else if (type === 'eat') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(540, now);
+                    osc.frequency.exponentialRampToValueAtTime(920, now + 0.11);
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.11);
+                    osc.start(now);
+                    osc.stop(now + 0.11);
+                } else if (type === 'cut') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.linearRampToValueAtTime(140, now + 0.07);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.07);
+                    osc.start(now);
+                    osc.stop(now + 0.07);
+                } else if (type === 'clean') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(760, now);
+                    osc.frequency.linearRampToValueAtTime(1020, now + 0.07);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.07);
+                    osc.start(now);
+                    osc.stop(now + 0.07);
+                } else if (type === 'coin') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, now);
+                    osc.frequency.setValueAtTime(880, now + 0.07);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {}
+        }
+
+        // --- СОСТОЯНИЕ ИГРЫ ---
+        let state = {
+            coins: 60,
+            isDay: true,
+            soundEnabled: true,
+            toolMode: 'hand',
+            upgrades: { filter: 1, fertilizer: 1, food: 1, decor: 1 },
+            fishes: [],
+            kelps: [],
+            corals: [],
+            snails: [],
+            shells: [],
+            algaeSpots: [],
+            foods: [],
+            bubbles: [],
+            ripples: [],
+            cutParticles: [],
+            floatingTexts: [],
+            selectedFishId: null,
+            lastFrameTime: performance.now(),
+            savedRealTimestamp: Date.now(),
+            algaeProgress: 0,
+            feederShake: 0,
+            isPointerDown: false,
+            pointerX: 0,
+            pointerY: 0,
+            camera: {
+                zoom: 1,
+                targetZoom: 1,
+                panX: 0,
+                panY: 0,
+                targetPanX: 0,
+                targetPanY: 0,
+                gyroX: 0,
+                gyroY: 0,
+                gyroActive: false
+            }
+        };
+
+        const rand = (min, max) => Math.random() * (max - min) + min;
+        const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+        const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+
+        let width = 0, height = 0, dpr = 1;
+        function getGroundY() { return height - 22; }
+
+        function spawnFloatingText(text, x, y, color = '#38bdf8') {
+            state.floatingTexts.push({
+                text,
+                x: clamp(x, 60, width - 60),
+                y: clamp(y, 50, height - 40),
+                color,
+                life: 1.5
+            });
+        }
+
+        function resizeCanvas() {
+            const rect = wrapper.getBoundingClientRect();
+            const prevW = width || rect.width;
+            dpr = Math.min(window.devicePixelRatio || 1, 3);
+            width = rect.width || window.innerWidth;
+            height = rect.height || window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            if (state.kelps.length > 0 && prevW > 0) {
+                state.kelps.forEach(k => { k.x = (k.x / prevW) * width; });
+            }
+            if (state.corals.length > 0 && prevW > 0) {
+                state.corals.forEach(c => { c.x = (c.x / prevW) * width; });
+            }
+            if (state.shells.length > 0 && prevW > 0) {
+                state.shells.forEach(s => { s.x = (s.x / prevW) * width; });
+            }
+        }
+
+        // --- 3D-ПРОЕКЦИЯ ГЛУБИНЫ АКВАРИУМА (1 МЕТР ВГЛУБЬ) ---
+        function project3D(x, y, z) {
+            const backScale = 0.54;
+            const t = clamp((z + 1) * 0.5, 0, 1);
+            const scale = backScale + t * (1 - backScale);
+            const vpX = width * 0.5 + (state.camera.gyroActive ? state.camera.gyroX * 42 : 0);
+            const vpY = height * 0.42 + (state.camera.gyroActive ? state.camera.gyroY * 30 : 0);
+            return {
+                x: vpX + (x - width * 0.5) * scale,
+                y: vpY + (y - height * 0.42) * scale,
+                scale: scale
+            };
+        }
+
+        // Преобразование экранного касания в координаты мирового холста с учётом зума и панорамы
+        function screenToWorld(sx, sy) {
+            const camOffsetX = state.camera.panX + (state.camera.gyroActive ? state.camera.gyroX * 48 : 0);
+            const camOffsetY = state.camera.panY + (state.camera.gyroActive ? state.camera.gyroY * 36 : 0);
+            return {
+                x: (sx - (width * 0.5 + camOffsetX)) / state.camera.zoom + width * 0.5,
+                y: (sy - (height * 0.5 + camOffsetY)) / state.camera.zoom + height * 0.5
+            };
+        }
+
+        // Позиция на одной из 4 стеклянных стенок
+        function getWall3DPos(wall, u, v) {
+            const topY = WATER_TOP_Y + 8;
+            const botY = getGroundY() - 8;
+            const y = topY + clamp(v, 0.04, 0.96) * (botY - topY);
+            const cu = clamp(u, 0.04, 0.96);
+            if (wall === 'front') return { x: cu * width, y, z: 0.96 };
+            if (wall === 'back') return { x: cu * width, y, z: -0.96 };
+            if (wall === 'left') return { x: 4, y, z: -0.92 + cu * 1.84 };
+            return { x: width - 4, y, z: -0.92 + cu * 1.84 };
+        }
+
+        // Координаты 3D-кормушки в центре водной поверхности
+        function get3DFeederBounds() {
+            const shakeX = state.feederShake > 0 ? Math.sin(state.feederShake * 45) * 4 * state.feederShake : 0;
+            const shakeY = state.feederShake > 0 ? Math.abs(Math.sin(state.feederShake * 25)) * 3 * state.feederShake : 0;
+            const halfW = Math.min(72, width * 0.17);
+            const yTop = WATER_TOP_Y + shakeY;
+            const pBL = project3D(width * 0.5 - halfW + shakeX, yTop, -0.32);
+            const pBR = project3D(width * 0.5 + halfW + shakeX, yTop, -0.32);
+            const pFR = project3D(width * 0.5 + halfW + shakeX, yTop, 0.32);
+            const pFL = project3D(width * 0.5 - halfW + shakeX, yTop, 0.32);
+            const center = project3D(width * 0.5 + shakeX, yTop, 0);
+            return { pBL, pBR, pFR, pFL, center };
+        }
+
+        // --- КЛАСС 3D-РЫБКИ ---
+        class Fish {
+            constructor(data = {}) {
+                this.id = data.id || 'fish_' + Math.random().toString(36).substr(2, 9);
+                this.name = data.name || DEFAULT_NAMES[Math.floor(Math.random() * DEFAULT_NAMES.length)];
+                this.paletteIndex = data.paletteIndex !== undefined ? data.paletteIndex : Math.floor(Math.random() * FISH_PALETTES.length);
+                
+                this.x = data.x !== undefined ? data.x : rand(60, Math.max(120, width - 60));
+                this.y = data.y !== undefined ? data.y : rand(WATER_TOP_Y + 35, Math.max(220, height - 130));
+                this.z = data.z !== undefined ? clamp(data.z, -0.92, 0.88) : rand(-0.82, 0.72);
+                
+                this.vx = data.vx !== undefined ? data.vx : (Math.random() < 0.5 ? -0.6 : 0.6);
+                this.vy = data.vy !== undefined ? data.vy : rand(-0.15, 0.15);
+                this.vz = data.vz !== undefined ? data.vz : rand(-0.008, 0.008);
+
+                this.yaw = this.vx >= 0 ? 0 : Math.PI;
+                this.pitch = 0;
+
+                this.ageSeconds = data.ageSeconds !== undefined ? data.ageSeconds : SECONDS_PER_DAY * 0.5;
+                this.hunger = data.hunger !== undefined ? data.hunger : 65;
+                this.energy = data.energy !== undefined ? data.energy : 90;
+                this.calm = data.calm !== undefined ? data.calm : 90;
+                this.trust = data.trust !== undefined ? data.trust : 35;
+
+                this.traitSpeed = data.traitSpeed !== undefined ? data.traitSpeed : Math.floor(rand(25, 88));
+                this.traitBrave = data.traitBrave !== undefined ? data.traitBrave : Math.floor(rand(20, 85));
+                this.traitSocial = data.traitSocial !== undefined ? data.traitSocial : Math.floor(rand(30, 95));
+
+                this.targetX = this.x + (this.vx >= 0 ? 110 : -110);
+                this.targetY = this.y;
+                this.targetZ = rand(-0.82, 0.75);
+                this.scareTimer = 0;
+                this.tailPhase = rand(0, Math.PI * 2);
+                this.emotionIcon = null;
+                this.emotionTimer = 0;
+            }
+
+            get isFry() { return this.ageSeconds < SECONDS_PER_DAY * 3; }
+
+            get baseSize() {
+                const days = this.ageSeconds / SECONDS_PER_DAY;
+                if (days < 3) return 14 + (days / 3) * 5;
+                return Math.min(27, 19.5 + Math.min(days - 3, 10) * 0.75);
+            }
+
+            get screenPos() {
+                return project3D(this.x, this.y, this.z);
+            }
+
+            get size() {
+                return this.baseSize * this.screenPos.scale;
+            }
+
+            get nutritionPerPellet() {
+                const base = this.isFry ? 36 : 18;
+                return base * (1 + (state.upgrades.food - 1) * 0.2);
+            }
+
+            get isFull() { return this.hunger >= 92; }
+
+            pickNewTarget() {
+                const marginX = 48;
+                const topMargin = WATER_TOP_Y + 34;
+                const bottomMargin = Math.max(85, height * 0.22);
+                this.targetX = rand(marginX, Math.max(marginX + 60, width - marginX));
+                this.targetY = rand(topMargin, Math.max(topMargin + 60, height - bottomMargin));
+                this.targetZ = rand(-0.88, 0.80);
+            }
+
+            showEmotion(icon, duration = 1.8) {
+                this.emotionIcon = icon;
+                this.emotionTimer = duration;
+            }
+
+            scareFrom(tapX, tapY) {
+                const sp = this.screenPos;
+                const habituation = (this.trust * 0.6 + this.traitBrave * 0.4) / 100;
+                if (habituation > 0.68) {
+                    this.targetX = clamp(tapX + rand(-35, 35), 48, width - 48);
+                    this.targetY = clamp(tapY + rand(-35, 35), WATER_TOP_Y + 30, getGroundY() - 55);
+                    this.targetZ = clamp(this.z + 0.35, -0.7, 0.82);
+                    this.trust = clamp(this.trust + 1.5 * state.upgrades.decor, 0, 100);
+                    this.showEmotion('❤️', 1.6);
+                } else {
+                    const angleAway = Math.atan2(sp.y - tapY, sp.x - tapX);
+                    const fleeSpeed = rand(2.6, 3.8) * (1.1 - habituation * 0.45);
+                    this.vx = Math.cos(angleAway) * fleeSpeed;
+                    this.vy = Math.sin(angleAway) * fleeSpeed;
+                    this.vz = -0.025;
+                    this.targetX = clamp(this.x + this.vx * 35, 48, width - 48);
+                    this.targetY = clamp(this.y + this.vy * 35, WATER_TOP_Y + 30, getGroundY() - 55);
+                    this.targetZ = rand(-0.88, -0.35);
+                    this.scareTimer = 1.0 * (1 - habituation * 0.45);
+                    this.calm = clamp(this.calm - 11 * (1 - habituation), 15, 100);
+                    this.trust = clamp(this.trust + 2.2 * state.upgrades.decor, 0, 100);
+                    this.showEmotion('❗️', 1.2);
+                }
+            }
+
+            applyRealTimePass(elapsedSeconds) {
+                this.ageSeconds += elapsedSeconds;
+                const hungerDecayPerSec = this.isFry ? (100 / (10 * 3600)) : (100 / (15 * 3600));
+                this.hunger = clamp(this.hunger - elapsedSeconds * hungerDecayPerSec, 0, 100);
+                if (!state.isDay) {
+                    this.energy = clamp(this.energy + elapsedSeconds * 0.02, 20, 100);
+                } else {
+                    this.energy = clamp(this.energy - elapsedSeconds * 0.001, 35, 100);
+                }
+                this.calm = clamp(this.calm + elapsedSeconds * 0.05, 20, 100);
+            }
+
+            update(dt) {
+                this.applyRealTimePass(dt);
+                if (this.emotionTimer > 0) this.emotionTimer -= dt;
+                if (this.scareTimer > 0) this.scareTimer -= dt;
+
+                // Поиск ближайшей гранулы корма (даже с дальней стенки рыбки плывут вперёд к кормушке!)
+                let chasingFood = null;
+                if (state.foods.length > 0 && this.scareTimer <= 0 && !this.isFull) {
+                    let minDist = Infinity;
+                    for (const f of state.foods) {
+                        const fz = f.z !== undefined ? f.z : 0;
+                        const d = Math.hypot(this.x - f.x, this.y - f.y, (this.z - fz) * 180);
+                        if (d < minDist) {
+                            minDist = d;
+                            chasingFood = f;
+                        }
+                    }
+
+                    if (chasingFood) {
+                        this.targetX = chasingFood.x;
+                        this.targetY = chasingFood.y;
+                        this.targetZ = chasingFood.z !== undefined ? chasingFood.z : 0;
+
+                        if (minDist < this.baseSize + 24) {
+                            this.hunger = clamp(this.hunger + this.nutritionPerPellet, 0, 100);
+                            this.energy = clamp(this.energy + 6, 0, 100);
+                            this.trust = clamp(this.trust + 2.5 * state.upgrades.decor, 0, 100);
+                            this.ageSeconds += 600;
+
+                            const idx = state.foods.indexOf(chasingFood);
+                            if (idx !== -1) state.foods.splice(idx, 1);
+
+                            playSound('eat');
+                            this.showEmotion(this.isFull ? '😊' : '😋', 1.4);
+                            const sp = this.screenPos;
+                            addCoins(5 + (state.upgrades.food - 1) * 2, sp.x, sp.y - 16);
+                            this.pickNewTarget();
+                        }
+                    }
+                }
+
+                if (!chasingFood && this.scareTimer <= 0) {
+                    const dist3D = Math.hypot(this.x - this.targetX, this.y - this.targetY, (this.z - this.targetZ) * 160);
+                    if (dist3D < 42 || Math.random() < 0.004) {
+                        this.pickNewTarget();
+                    }
+                }
+
+                // Мягкое 3D-расталкивание, чтобы рыбки не слипались в кучу
+                let sepX = 0, sepY = 0, sepZ = 0;
+                for (const other of state.fishes) {
+                    if (other === this) continue;
+                    const ox = this.x - other.x;
+                    const oy = this.y - other.y;
+                    const oz = (this.z - other.z) * 170;
+                    const od = Math.hypot(ox, oy, oz);
+                    const minSpace = (this.baseSize + other.baseSize) * 1.45;
+                    if (od > 0.1 && od < minSpace) {
+                        const push = ((minSpace - od) / minSpace) * 0.25;
+                        sepX += (ox / od) * push;
+                        sepY += (oy / od) * push;
+                        sepZ += (oz / od) * (push / 170);
+                    }
+                }
+
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const dz = this.targetZ - this.z;
+                const d = Math.hypot(dx, dy, dz * 160) || 1;
+
+                const fryBonus = this.isFry ? 1.08 : 1.0;
+                const baseSpeed = (0.58 + (this.traitSpeed / 100) * 0.45) * fryBonus * (state.isDay ? 1 : 0.48);
+                const activeSpeed = chasingFood ? baseSpeed * 2.0 : (this.scareTimer > 0 ? baseSpeed * 2.5 : baseSpeed);
+
+                const desiredVx = (dx / d) * activeSpeed + sepX;
+                const desiredVy = (dy / d) * activeSpeed + sepY;
+                const desiredVz = ((dz * 160) / d) * (activeSpeed / 160) + sepZ;
+
+                const steer = this.scareTimer > 0 ? 0.08 : 0.032;
+                this.vx += (desiredVx - this.vx) * steer;
+                this.vy += (desiredVy - this.vy) * steer;
+                this.vz += (desiredVz - this.vz) * steer;
+
+                this.x += this.vx * (dt * 60);
+                this.y += this.vy * (dt * 60);
+                this.z = clamp(this.z + this.vz * (dt * 60), -0.92, 0.88);
+
+                const padX = this.baseSize + 20;
+                const padTop = WATER_TOP_Y + 26;
+                const padBottom = getGroundY() - 36;
+
+                if (this.x < padX) {
+                    this.x = padX;
+                    this.vx = Math.abs(this.vx) * 0.6 + 0.25;
+                    this.targetX = rand(width * 0.35, width - 60);
+                } else if (this.x > width - padX) {
+                    this.x = width - padX;
+                    this.vx = -Math.abs(this.vx) * 0.6 - 0.25;
+                    this.targetX = rand(60, width * 0.65);
+                }
+
+                if (this.y < padTop) {
+                    this.y = padTop;
+                    this.vy = Math.abs(this.vy) * 0.5;
+                    this.targetY = rand(WATER_TOP_Y + 60, height * 0.58);
+                } else if (this.y > padBottom) {
+                    this.y = padBottom;
+                    this.vy = -Math.abs(this.vy) * 0.5;
+                    this.targetY = rand(WATER_TOP_Y + 50, height * 0.52);
+                }
+
+                // Плавный 3D-разворот (yaw: 0 = вправо, PI/2 = на зрителя, PI = влево, -PI/2 = вглубь)
+                const targetYaw = Math.atan2(this.vz * 165, this.vx);
+                let diffYaw = targetYaw - this.yaw;
+                while (diffYaw > Math.PI) diffYaw -= Math.PI * 2;
+                while (diffYaw < -Math.PI) diffYaw += Math.PI * 2;
+                this.yaw += diffYaw * Math.min(1, dt * 3.8);
+
+                const horizSpeed = Math.hypot(this.vx, this.vz * 140);
+                const targetPitch = clamp(this.vy / (horizSpeed + 0.85), -0.35, 0.35);
+                this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 4.5);
+
+                const speedMag = Math.hypot(this.vx, this.vy, this.vz * 140);
+                this.tailPhase += dt * (4.2 + speedMag * 3.2);
+            }
+
+            draw(ctx) {
+                const pal = FISH_PALETTES[this.paletteIndex % FISH_PALETTES.length];
+                const sp = this.screenPos;
+                const s = this.baseSize * sp.scale;
+
+                const cosYaw = Math.cos(this.yaw);
+                const sinYaw = Math.sin(this.yaw);
+                const absCos = Math.abs(cosYaw);
+                const facingDir = cosYaw >= 0 ? 1 : -1;
+                const facingFront = sinYaw >= 0;
+
+                const halfLen = s * (0.48 + 0.56 * absCos);
+                const halfH = s * (this.isFull ? 0.64 : 0.57);
+                const wag = Math.sin(this.tailPhase);
+
+                ctx.save();
+                ctx.translate(sp.x, sp.y);
+
+                // Легкая водная дымка для дальних рыбок
+                if (this.z < 0.05) {
+                    ctx.globalAlpha = 1 - clamp((0.05 - this.z) * 0.30, 0, 0.32);
+                }
+
+                if (state.selectedFishId === this.id) {
+                    ctx.save();
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, s * 1.65, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.rotate(this.pitch * facingDir * absCos);
+
+                const drawTail = () => {
+                    const tailX = -facingDir * halfLen * 0.86;
+                    const tailLen = s * (0.45 + 0.50 * absCos);
+                    const tailEndX = tailX - facingDir * tailLen + wag * s * 0.22 * (1 - absCos * 0.45);
+                    const tailSpread = s * (0.42 + 0.16 * absCos);
+                    const wagY = wag * s * 0.14;
+
+                    ctx.save();
+                    const tailGrad = ctx.createLinearGradient(tailX, 0, tailEndX, 0);
+                    tailGrad.addColorStop(0, pal.fin);
+                    tailGrad.addColorStop(1, pal.light);
+                    ctx.fillStyle = tailGrad;
+                    ctx.globalAlpha *= 0.92;
+                    ctx.beginPath();
+                    ctx.moveTo(tailX, -s * 0.12);
+                    ctx.quadraticCurveTo(
+                        (tailX + tailEndX) * 0.5, -tailSpread * 0.72 + wagY,
+                        tailEndX, -tailSpread + wagY
+                    );
+                    ctx.quadraticCurveTo(
+                        tailX - facingDir * tailLen * 0.55, wagY * 0.5,
+                        tailEndX, tailSpread + wagY
+                    );
+                    ctx.quadraticCurveTo(
+                        (tailX + tailEndX) * 0.5, tailSpread * 0.72 + wagY,
+                        tailX, s * 0.12
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                };
+
+                const drawPectoralFins = (backLayer) => {
+                    const finFlap = Math.sin(this.tailPhase * 1.15) * 0.28;
+                    ctx.fillStyle = pal.fin;
+                    ctx.globalAlpha *= 0.84;
+
+                    if (absCos < 0.72) {
+                        // Вид спереди или сзади — оба боковых плавника
+                        for (const side of [-1, 1]) {
+                            ctx.save();
+                            ctx.translate(side * halfLen * 0.76, halfH * 0.14);
+                            ctx.rotate(side * (0.48 + finFlap));
+                            ctx.beginPath();
+                            ctx.ellipse(side * s * 0.26, 0, s * 0.30, s * 0.13, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.restore();
+                        }
+                    } else if (!backLayer) {
+                        ctx.save();
+                        ctx.translate(facingDir * halfLen * 0.12, halfH * 0.24);
+                        ctx.rotate(-facingDir * (0.35 + finFlap));
+                        ctx.beginPath();
+                        ctx.ellipse(-facingDir * s * 0.22, 0, s * 0.28, s * 0.13, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                };
+
+                // 1. Хвост сзади, если рыбка плывет на зрителя или боком
+                if (facingFront || absCos > 0.45) {
+                    drawTail();
+                }
+
+                // 2. Спинной плавник
+                ctx.save();
+                ctx.fillStyle = pal.fin;
+                ctx.beginPath();
+                ctx.moveTo(facingDir * halfLen * 0.22, -halfH * 0.85);
+                ctx.quadraticCurveTo(
+                    -facingDir * halfLen * 0.15, -halfH * 1.48,
+                    -facingDir * halfLen * 0.58, -halfH * 0.72
+                );
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                // 3. Гладкий объёмный 3D-корпус (единый силуэт без колец)
+                ctx.save();
+                const bodyGrad = ctx.createRadialGradient(
+                    facingDir * halfLen * 0.16, -halfH * 0.32, s * 0.08,
+                    0, 0, Math.max(halfLen, halfH) * 1.15
+                );
+                bodyGrad.addColorStop(0, pal.light);
+                bodyGrad.addColorStop(0.55, pal.body);
+                bodyGrad.addColorStop(1, pal.dark);
+
+                ctx.fillStyle = bodyGrad;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, halfLen, halfH, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Полоски для зебры (внутри контура тела)
+                ctx.clip();
+                if (pal.zebra && absCos > 0.35) {
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+                    for (const sx of [-0.36, -0.06, 0.24]) {
+                        ctx.beginPath();
+                        ctx.ellipse(facingDir * halfLen * sx, 0, halfLen * 0.10, halfH * 1.1, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // Объёмное светлое брюшко и глянцевый блик спинки
+                const bellyGrad = ctx.createLinearGradient(0, 0, 0, halfH);
+                bellyGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                bellyGrad.addColorStop(1, 'rgba(255, 255, 255, 0.26)');
+                ctx.fillStyle = bellyGrad;
+                ctx.fillRect(-halfLen, 0, halfLen * 2, halfH);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.24)';
+                ctx.beginPath();
+                ctx.ellipse(facingDir * halfLen * 0.12, -halfH * 0.38, halfLen * 0.55, halfH * 0.22, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ночной блик на чешуе от верхнего правого светильника
+                if (!state.isDay) {
+                    const lampDx = (width * 0.82) - sp.x;
+                    const lampDy = WATER_TOP_Y - sp.y;
+                    const lampDist = Math.hypot(lampDx, lampDy);
+                    const lightStrength = clamp(1 - lampDist / (height * 0.95), 0.12, 0.65);
+                    const hlGrad = ctx.createRadialGradient(
+                        halfLen * 0.35, -halfH * 0.45, s * 0.05,
+                        halfLen * 0.25, -halfH * 0.3, Math.max(halfLen, halfH) * 0.95
+                    );
+                    hlGrad.addColorStop(0, `rgba(254, 249, 195, ${lightStrength})`);
+                    hlGrad.addColorStop(1, 'rgba(125, 211, 252, 0)');
+                    ctx.fillStyle = hlGrad;
+                    ctx.fillRect(-halfLen, -halfH, halfLen * 2, halfH * 2);
+                }
+
+                // Аккуратная жаберная дуга при виде сбоку
+                if (absCos > 0.45) {
+                    ctx.strokeStyle = 'rgba(15, 23, 42, 0.22)';
+                    ctx.lineWidth = Math.max(1, s * 0.06);
+                    ctx.beginPath();
+                    ctx.arc(facingDir * halfLen * 0.28, 0, halfH * 0.55, facingDir > 0 ? Math.PI * 0.68 : -Math.PI * 0.32, facingDir > 0 ? Math.PI * 1.32 : Math.PI * 0.32);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // 4. Мордочка (глазки и ротик) — рисуем, если рыбка не уплывает строго спиной
+                if (facingFront || absCos > 0.32) {
+                    const eyeR = (this.isFry ? 0.18 : 0.145) * s;
+                    const drawEye = (ex, ey, scaleX = 1) => {
+                        ctx.save();
+                        ctx.translate(ex, ey);
+                        ctx.scale(scaleX, 1);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, eyeR, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        if (!state.isDay && this.scareTimer <= 0) {
+                            ctx.strokeStyle = '#0f172a';
+                            ctx.lineWidth = Math.max(1.2, eyeR * 0.45);
+                            ctx.beginPath();
+                            ctx.arc(0, 0, eyeR * 0.65, 0.15 * Math.PI, 0.85 * Math.PI);
+                            ctx.stroke();
+                        } else {
+                            ctx.fillStyle = '#090d16';
+                            ctx.beginPath();
+                            ctx.arc(facingDir * eyeR * 0.22 * absCos, 0, eyeR * 0.58, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.fillStyle = '#ffffff';
+                            ctx.beginPath();
+                            ctx.arc(facingDir * eyeR * 0.32 * absCos - eyeR * 0.15, -eyeR * 0.22, eyeR * 0.24, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        ctx.restore();
+                    };
+
+                    if (facingFront && absCos < 0.55) {
+                        // Анфас — оба глаза и милый ротик по центру
+                        const spreadX = halfLen * (0.58 - absCos * 0.2);
+                        drawEye(-spreadX, -halfH * 0.16, 0.88);
+                        drawEye(spreadX, -halfH * 0.16, 0.88);
+
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+                        ctx.beginPath();
+                        ctx.ellipse(facingDir * halfLen * 0.15 * absCos, halfH * 0.22, s * 0.12, s * 0.075, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        // Профиль / три четверти
+                        const ex = facingDir * halfLen * 0.54;
+                        drawEye(ex, -halfH * 0.16, 0.72 + 0.28 * absCos);
+
+                        // Плавная улыбка-ротик
+                        ctx.strokeStyle = 'rgba(15, 23, 42, 0.42)';
+                        ctx.lineWidth = Math.max(1.2, s * 0.06);
+                        ctx.lineCap = 'round';
+                        ctx.beginPath();
+                        ctx.arc(facingDir * halfLen * 0.82, halfH * 0.16, s * 0.12, facingDir > 0 ? 0.2 * Math.PI : 0.45 * Math.PI, facingDir > 0 ? 0.65 * Math.PI : 0.85 * Math.PI);
+                        ctx.stroke();
+                    }
+                }
+
+                // 5. Грудные плавнички
+                drawPectoralFins(false);
+
+                // 6. Хвост поверх корпуса, когда рыбка уплывает вглубь спиной к зрителю
+                if (!facingFront && absCos <= 0.45) {
+                    drawTail();
+                }
+
+                ctx.restore();
+
+                // Эмоция над рыбкой (без текста "Сыта!")
+                if (this.emotionTimer > 0 && this.emotionIcon) {
+                    ctx.save();
+                    ctx.font = `${Math.round(13 * sp.scale + 3)}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.emotionIcon, sp.x, sp.y - halfH - 8);
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- КЛАСС УЛИТКИ-ЧИСТИЛЬЩИКА (ПОЛЗАЕТ ПО ВСЕМ 4 СТЁКЛАМ) ---
+        class GlassSnail {
+            constructor(data = {}) {
+                this.wall = WALLS.includes(data.wall) ? data.wall : WALLS[Math.floor(Math.random() * WALLS.length)];
+                this.u = typeof data.u === 'number' ? data.u : rand(0.15, 0.85);
+                this.v = typeof data.v === 'number' ? data.v : rand(0.2, 0.85);
+                this.targetU = rand(0.15, 0.85);
+                this.targetV = rand(0.15, 0.85);
+                this.angle = 0;
+                this.size = 13;
+                this.hue = data.hue !== undefined ? data.hue : rand(22, 46);
+            }
+
+            get pos3D() {
+                return getWall3DPos(this.wall, this.u, this.v);
+            }
+
+            update(dt) {
+                let targetSpot = null;
+                let minDist = Infinity;
+                for (const spot of state.algaeSpots) {
+                    if (spot.wall !== this.wall) continue;
+                    const d = Math.hypot(this.u - spot.u, this.v - spot.v);
+                    if (d < minDist) {
+                        minDist = d;
+                        targetSpot = spot;
+                    }
+                }
+
+                if (targetSpot) {
+                    this.targetU = targetSpot.u;
+                    this.targetV = targetSpot.v;
+                    if (minDist < 0.065) {
+                        targetSpot.opacity -= dt * 0.28;
+                        if (targetSpot.opacity <= 0.05) {
+                            const idx = state.algaeSpots.indexOf(targetSpot);
+                            if (idx !== -1) state.algaeSpots.splice(idx, 1);
+                            const p = this.pos3D;
+                            const sp = project3D(p.x, p.y, p.z);
+                            addCoins(10, sp.x, sp.y - 16);
+                            updateCleanlinessUI();
+                        }
+                    }
+                } else {
+                    const otherSpot = state.algaeSpots.find(s => s.wall !== this.wall);
+                    if (otherSpot && Math.abs(this.u - this.targetU) < 0.04 && Math.abs(this.v - this.targetV) < 0.04) {
+                        const wallIdx = WALLS.indexOf(this.wall);
+                        this.wall = WALLS[(wallIdx + 1) % WALLS.length];
+                        this.u = this.u > 0.5 ? 0.06 : 0.94;
+                        this.targetU = rand(0.15, 0.85);
+                        this.targetV = rand(0.15, 0.85);
+                    } else if (Math.hypot(this.u - this.targetU, this.v - this.targetV) < 0.04) {
+                        this.targetU = otherSpot ? (Math.random() < 0.5 ? 0.05 : 0.95) : rand(0.12, 0.88);
+                        this.targetV = rand(0.14, 0.88);
+                    }
+                }
+
+                const du = this.targetU - this.u;
+                const dv = this.targetV - this.v;
+                const d = Math.hypot(du, dv) || 1;
+                const speed = targetSpot ? 0.055 : 0.032;
+                this.u = clamp(this.u + (du / d) * speed * dt, 0.04, 0.96);
+                this.v = clamp(this.v + (dv / d) * speed * dt, 0.06, 0.94);
+
+                const pNow = this.pos3D;
+                const pNext = getWall3DPos(this.wall, this.u + (du / d) * 0.02, this.v + (dv / d) * 0.02);
+                const spNow = project3D(pNow.x, pNow.y, pNow.z);
+                const spNext = project3D(pNext.x, pNext.y, pNext.z);
+                this.angle = Math.atan2(spNext.y - spNow.y, spNext.x - spNow.x);
+            }
+
+            draw(ctx) {
+                const p = this.pos3D;
+                const sp = project3D(p.x, p.y, p.z);
+                const isSide = (this.wall === 'left' || this.wall === 'right');
+
+                ctx.save();
+                ctx.translate(sp.x, sp.y);
+                ctx.scale(sp.scale * (isSide ? 0.62 : 1), sp.scale);
+                if (this.wall === 'back') ctx.globalAlpha = 0.72;
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = 'rgba(253, 224, 71, 0.88)';
+                ctx.beginPath();
+                ctx.ellipse(2, 0, this.size * 1.15, this.size * 0.52, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(253, 224, 71, 0.92)';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.moveTo(this.size * 0.95, -2.5);
+                ctx.lineTo(this.size * 1.45, -5.5);
+                ctx.moveTo(this.size * 0.95, 2.5);
+                ctx.lineTo(this.size * 1.45, 5.5);
+                ctx.stroke();
+
+                const shellGrad = ctx.createRadialGradient(-2, -2, 1, -1, 0, this.size * 0.85);
+                shellGrad.addColorStop(0, `hsl(${this.hue}, 85%, 65%)`);
+                shellGrad.addColorStop(1, `hsl(${this.hue - 10}, 75%, 32%)`);
+                ctx.fillStyle = shellGrad;
+                ctx.beginPath();
+                ctx.arc(-2, 0, this.size * 0.78, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(45, 22, 6, 0.45)';
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                ctx.arc(-2, 0, this.size * 0.44, 0, Math.PI * 1.65);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // --- КЛАСС ВОДОРОСЛЕЙ (ПО ВСЕМУ 3D-ДНУ) ---
+        class Kelp {
+            constructor(x, segments = null, z = null) {
+                this.x = x;
+                this.z = z !== null ? z : rand(-0.88, 0.84);
+                this.maxSegments = 18;
+                this.segments = segments !== null ? segments : rand(5.5, 10.5);
+                this.phase = rand(0, Math.PI * 2);
+                this.hue = rand(105, 134);
+            }
+
+            applyRealTimePass(elapsedSeconds) {
+                const baseSegsPerSec = 3.0 / SECONDS_PER_DAY;
+                const fertMultiplier = 1 + (state.upgrades.fertilizer - 1) * 0.25;
+                const lightMultiplier = state.isDay ? 1.0 : 0.75;
+                const added = elapsedSeconds * baseSegsPerSec * fertMultiplier * lightMultiplier;
+                if (this.segments < this.maxSegments) {
+                    this.segments = Math.min(this.maxSegments, this.segments + added);
+                }
+            }
+
+            update(dt) {
+                this.phase += dt * 1.7;
+                this.applyRealTimePass(dt);
+            }
+
+            draw(ctx) {
+                const base = project3D(this.x, getGroundY(), this.z);
+                const segLen = Math.max(9, height * 0.024) * base.scale;
+                const totalSegs = Math.floor(this.segments);
+                const frac = this.segments - totalSegs;
+
+                ctx.save();
+                if (this.z < 0.1) {
+                    ctx.globalAlpha = 1 - clamp((0.1 - this.z) * 0.32, 0, 0.36);
+                }
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                const lightBase = state.isDay ? (38 + (this.z + 1) * 6) : (24 + (this.z + 1) * 4);
+                ctx.strokeStyle = `hsla(${this.hue}, 85%, ${lightBase}%, 0.92)`;
+                ctx.lineWidth = Math.max(2.5, 6.2 * base.scale);
+
+                ctx.beginPath();
+                let curX = base.x;
+                let curY = base.y;
+                ctx.moveTo(curX, curY);
+
+                for (let i = 1; i <= totalSegs; i++) {
+                    const sway = Math.sin(this.phase + i * 0.42) * (2.2 + i * 0.6) * base.scale;
+                    curX = base.x + sway;
+                    curY = base.y - i * segLen;
+                    ctx.lineTo(curX, curY);
+                }
+
+                if (frac > 0) {
+                    const i = totalSegs + 1;
+                    const sway = Math.sin(this.phase + i * 0.42) * (2.2 + i * 0.6) * base.scale;
+                    curX = base.x + sway * frac;
+                    curY = base.y - (totalSegs + frac) * segLen;
+                    ctx.lineTo(curX, curY);
+                }
+                ctx.stroke();
+
+                ctx.strokeStyle = state.isDay ? '#bef264' : '#65a30d';
+                ctx.lineWidth = Math.max(1, 1.8 * base.scale);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            tryTrim(px, py) {
+                const base = project3D(this.x, getGroundY(), this.z);
+                const segLen = Math.max(9, height * 0.024) * base.scale;
+                const topY = base.y - this.segments * segLen;
+
+                if (this.segments >= 4.2 && Math.abs(px - base.x) < Math.max(18, 24 * base.scale) && py >= topY - 14 && py <= base.y - segLen * 2.5) {
+                    const cutSegIndex = clamp(Math.floor((base.y - py) / segLen), 3, Math.floor(this.segments) - 1);
+                    const removed = this.segments - cutSegIndex;
+                    if (removed >= 0.8) {
+                        this.segments = cutSegIndex;
+                        for (let i = 0; i < 4; i++) {
+                            state.cutParticles.push({
+                                x: base.x + rand(-8, 8),
+                                y: py + rand(-10, 10),
+                                vx: rand(-0.8, 0.8),
+                                vy: rand(-1.5, -0.3),
+                                life: 1.0
+                            });
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        // --- ОТРИСОВКА 3D-КОРОБКИ АКВАРИУМА, ДЕКОРА И 3D-КОРМУШКИ ---
+        function drawZooReefRoom(ctx) {
+            const groundY = getGroundY();
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            if (state.isDay) {
+                bgGrad.addColorStop(0, '#0c4a6e');
+                bgGrad.addColorStop(0.5, '#072a47');
+                bgGrad.addColorStop(1, '#041729');
+            } else {
+                bgGrad.addColorStop(0, '#020813');
+                bgGrad.addColorStop(0.6, '#041224');
+                bgGrad.addColorStop(1, '#020914');
+            }
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            const backTL = project3D(0, WATER_TOP_Y, -1);
+            const backTR = project3D(width, WATER_TOP_Y, -1);
+            const backBL = project3D(0, groundY, -1);
+            const backBR = project3D(width, groundY, -1);
+
+            const frontTL = { x: 0, y: WATER_TOP_Y };
+            const frontTR = { x: width, y: WATER_TOP_Y };
+            const frontBL = { x: 0, y: groundY };
+            const frontBR = { x: width, y: groundY };
+
+            // Задняя стенка
+            ctx.save();
+            const backWallGrad = ctx.createLinearGradient(0, backTL.y, 0, backBL.y);
+            backWallGrad.addColorStop(0, state.isDay ? 'rgba(3, 37, 65, 0.72)' : 'rgba(1, 6, 16, 0.85)');
+            backWallGrad.addColorStop(1, state.isDay ? 'rgba(2, 20, 38, 0.85)' : 'rgba(1, 4, 12, 0.92)');
+            ctx.fillStyle = backWallGrad;
+            ctx.fillRect(backTL.x, backTL.y, backTR.x - backTL.x, backBL.y - backTL.y);
+
+            // Поверхность воды
+            const surfGrad = ctx.createLinearGradient(0, frontTL.y, 0, backTL.y);
+            surfGrad.addColorStop(0, state.isDay ? 'rgba(56, 189, 248, 0.24)' : 'rgba(30, 58, 138, 0.2)');
+            surfGrad.addColorStop(1, state.isDay ? 'rgba(14, 116, 144, 0.14)' : 'rgba(15, 23, 42, 0.12)');
+            ctx.fillStyle = surfGrad;
+            ctx.beginPath();
+            ctx.moveTo(frontTL.x, frontTL.y);
+            ctx.lineTo(frontTR.x, frontTR.y);
+            ctx.lineTo(backTR.x, backTR.y);
+            ctx.lineTo(backTL.x, backTL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Ребра 3D-аквариума
+            ctx.strokeStyle = state.isDay ? 'rgba(125, 211, 252, 0.22)' : 'rgba(56, 189, 248, 0.12)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(backTL.x, backTL.y, backTR.x - backTL.x, backBL.y - backTL.y);
+
+            ctx.beginPath();
+            ctx.moveTo(frontTL.x, frontTL.y); ctx.lineTo(backTL.x, backTL.y);
+            ctx.moveTo(frontTR.x, frontTR.y); ctx.lineTo(backTR.x, backTR.y);
+            ctx.moveTo(frontBL.x, frontBL.y); ctx.lineTo(backBL.x, backBL.y);
+            ctx.moveTo(frontBR.x, frontBR.y); ctx.lineTo(backBR.x, backBR.y);
+            ctx.stroke();
+            ctx.restore();
+
+            // Ночной светильник сверху справа
+            if (!state.isDay) {
+                const lampX = width * 0.82;
+                const lampY = WATER_TOP_Y;
+                const coneGrad = ctx.createRadialGradient(lampX, lampY, 8, lampX - width * 0.14, height * 0.48, height * 0.88);
+                coneGrad.addColorStop(0, 'rgba(254, 249, 195, 0.26)');
+                coneGrad.addColorStop(0.35, 'rgba(125, 211, 252, 0.13)');
+                coneGrad.addColorStop(1, 'rgba(14, 116, 144, 0)');
+                ctx.fillStyle = coneGrad;
+                ctx.beginPath();
+                ctx.moveTo(lampX - 24, lampY);
+                ctx.lineTo(lampX + 24, lampY);
+                ctx.lineTo(width, height);
+                ctx.lineTo(width * 0.12, height);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.save();
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(lampX - 24, lampY - 8, 48, 12, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#fef08a';
+                ctx.shadowColor = '#fde047';
+                ctx.shadowBlur = 14;
+                ctx.beginPath();
+                ctx.ellipse(lampX, lampY + 4, 18, 3.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Коряги в глубине
+            ctx.save();
+            ctx.strokeStyle = state.isDay ? 'rgba(120, 72, 42, 0.36)' : 'rgba(55, 35, 22, 0.32)';
+            ctx.lineCap = 'round';
+            const branches = [0.16, 0.38, 0.64, 0.84];
+            branches.forEach((bx, idx) => {
+                const topP = project3D(width * bx, WATER_TOP_Y, -0.88);
+                const midP = project3D(width * (bx + (idx % 2 === 0 ? 0.06 : -0.06)), height * 0.45, -0.88);
+                const botP = project3D(width * (bx + (idx % 2 === 0 ? -0.04 : 0.05)), groundY, -0.88);
+                ctx.lineWidth = (9 - idx) * topP.scale;
+                ctx.beginPath();
+                ctx.moveTo(topP.x, topP.y);
+                ctx.quadraticCurveTo(midP.x, midP.y, botP.x, botP.y);
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // Глубокое 3D-дно
+            const floorGrad = ctx.createLinearGradient(0, backBL.y, 0, height);
+            floorGrad.addColorStop(0, state.isDay ? '#3b2e22' : '#1b140e');
+            floorGrad.addColorStop(0.5, state.isDay ? '#5e4730' : '#2a1f16');
+            floorGrad.addColorStop(1, state.isDay ? '#785a3c' : '#3a2b1d');
+            ctx.fillStyle = floorGrad;
+            ctx.beginPath();
+            ctx.moveTo(backBL.x, backBL.y);
+            ctx.lineTo(backBR.x, backBR.y);
+            ctx.lineTo(frontBR.x, frontBR.y);
+            ctx.lineTo(frontBL.x, frontBL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Передняя кромка песка
+            const sandGrad = ctx.createLinearGradient(0, groundY - 4, 0, height);
+            sandGrad.addColorStop(0, state.isDay ? '#785a3c' : '#3a2b1d');
+            sandGrad.addColorStop(1, state.isDay ? '#473320' : '#1f160e');
+            ctx.fillStyle = sandGrad;
+            ctx.fillRect(0, groundY, width, 24);
+
+            // Галька по всему 3D-дну
+            for (let row = 0; row < 4; row++) {
+                const zRow = -0.75 + row * 0.52;
+                for (let col = 0; col < 7; col++) {
+                    const p = project3D(width * (0.1 + col * 0.133 + (row % 2) * 0.05), groundY, zRow);
+                    ctx.fillStyle = state.isDay ? 'rgba(203, 213, 225, 0.25)' : 'rgba(100, 116, 139, 0.18)';
+                    ctx.beginPath();
+                    ctx.ellipse(p.x, p.y + 2, 10 * p.scale, 4.2 * p.scale, 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function draw3DWaterFeeder(ctx) {
+            const { pBL, pBR, pFR, pFL, center } = get3DFeederBounds();
+            const rimDepth = 11;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(225, 29, 72, 0.18)';
+            ctx.beginPath();
+            ctx.moveTo(pFL.x - 4, pFL.y + rimDepth + 4);
+            ctx.lineTo(pFR.x + 4, pFR.y + rimDepth + 4);
+            ctx.lineTo(pBR.x + 3, pBR.y + rimDepth + 3);
+            ctx.lineTo(pBL.x - 3, pBL.y + rimDepth + 3);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.58)';
+            ctx.beginPath();
+            ctx.moveTo(pBL.x, pBL.y);
+            ctx.lineTo(pBR.x, pBR.y);
+            ctx.lineTo(pFR.x, pFR.y);
+            ctx.lineTo(pFL.x, pFL.y);
+            ctx.closePath();
+            ctx.fill();
+
+            const frontWallGrad = ctx.createLinearGradient(0, pFL.y, 0, pFL.y + rimDepth);
+            frontWallGrad.addColorStop(0, '#f43f5e');
+            frontWallGrad.addColorStop(1, '#881337');
+            ctx.fillStyle = frontWallGrad;
+            ctx.beginPath();
+            ctx.moveTo(pFL.x, pFL.y);
+            ctx.lineTo(pFR.x, pFR.y);
+            ctx.lineTo(pFR.x, pFR.y + rimDepth);
+            ctx.lineTo(pFL.x, pFL.y + rimDepth);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#9f1239';
+            ctx.beginPath();
+            ctx.moveTo(pBL.x, pBL.y);
+            ctx.lineTo(pFL.x, pFL.y);
+            ctx.lineTo(pFL.x, pFL.y + rimDepth);
+            ctx.lineTo(pBL.x, pBL.y + rimDepth * 0.75);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(pBR.x, pBR.y);
+            ctx.lineTo(pFR.x, pFR.y);
+            ctx.lineTo(pFR.x, pFR.y + rimDepth);
+            ctx.lineTo(pBR.x, pBR.y + rimDepth * 0.75);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#fda4af';
+            ctx.lineWidth = 2.6;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pBL.x, pBL.y);
+            ctx.lineTo(pBR.x, pBR.y);
+            ctx.lineTo(pFR.x, pFR.y);
+            ctx.lineTo(pFL.x, pFL.y);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(186, 230, 253, 0.35)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.ellipse(center.x, center.y + rimDepth * 0.5, (pFR.x - pFL.x) * 0.62, 10, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawShipwreck(ctx, z) {
+            const shipPos = project3D(width * 0.5, getGroundY() - 8, z);
+            ctx.save();
+            ctx.translate(shipPos.x, shipPos.y);
+            ctx.scale(shipPos.scale, shipPos.scale);
+            ctx.rotate(-0.07);
+
+            ctx.fillStyle = state.isDay ? '#991b1b' : '#581010';
+            ctx.beginPath();
+            ctx.moveTo(-54, -14);
+            ctx.lineTo(54, -14);
+            ctx.lineTo(38, 16);
+            ctx.lineTo(-38, 16);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = state.isDay ? '#0284c7' : '#074063';
+            ctx.beginPath();
+            ctx.moveTo(-40, -14);
+            ctx.lineTo(-26, -34);
+            ctx.lineTo(28, -34);
+            ctx.lineTo(42, -14);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-6, -34);
+            ctx.lineTo(-8, -62);
+            ctx.moveTo(16, -34);
+            ctx.lineTo(18, -54);
+            ctx.stroke();
+
+            ctx.fillStyle = state.isDay ? '#fef08a' : '#eab308';
+            for (const wx of [-22, 0, 22]) {
+                ctx.beginPath();
+                ctx.arc(wx, 0, 4.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawSeashell(ctx, sh) {
+            const p = project3D(sh.x, getGroundY() + 2, sh.z);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.scale(p.scale, p.scale);
+            ctx.rotate(sh.rot);
+            const r = sh.size;
+
+            if (sh.type === 'pearl') {
+                ctx.fillStyle = state.isDay ? '#fda4af' : '#881337';
+                ctx.beginPath();
+                ctx.ellipse(0, 3, r, r * 0.45, 0, 0, Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = state.isDay ? '#fecdd3' : '#9f1239';
+                ctx.beginPath();
+                ctx.ellipse(0, -3, r * 0.95, r * 0.48, -0.18, Math.PI, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#e0f2fe';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                const shellGrad = ctx.createRadialGradient(0, 2, 2, 0, 0, r);
+                shellGrad.addColorStop(0, state.isDay ? '#fef3c7' : '#78350f');
+                shellGrad.addColorStop(1, state.isDay ? '#f59e0b' : '#451a03');
+                ctx.fillStyle = shellGrad;
+                ctx.beginPath();
+                ctx.arc(0, 2, r, Math.PI, 0);
+                ctx.lineTo(r * 0.35, 6);
+                ctx.lineTo(-r * 0.35, 6);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawCoralBush(ctx, c) {
+            const p = project3D(c.x, getGroundY(), c.z);
+            const radius = c.radius * p.scale;
+            ctx.save();
+            if (c.z < 0) ctx.globalAlpha = 1 - clamp(-c.z * 0.32, 0, 0.35);
+            const count = 7;
+            for (let i = 0; i < count; i++) {
+                const angle = -Math.PI * 0.85 + (i / (count - 1)) * Math.PI * 0.7;
+                const len = radius * (0.75 + (i % 2) * 0.25);
+                const ex = p.x + Math.cos(angle) * len;
+                const ey = p.y + Math.sin(angle) * len;
+                ctx.strokeStyle = state.isDay ? c.cLight : c.cDark;
+                ctx.lineWidth = Math.max(3, 8 * p.scale);
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.quadraticCurveTo(p.x + Math.cos(angle) * len * 0.5, p.y + Math.sin(angle) * len * 0.6 - 6 * p.scale, ex, ey);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // --- ПОСТУКИВАНИЕ ПО КОРМУШКЕ ---
+        const feederBox = document.getElementById('feeder-box');
+        function tapFeeder() {
+            initAudio();
+            playSound('feeder');
+            state.feederShake = 1.0;
+            feederBox.classList.remove('tapped');
+            void feederBox.offsetWidth;
+            feederBox.classList.add('tapped');
+            setTimeout(() => feederBox.classList.remove('tapped'), 140);
+
+            const { center } = get3DFeederBounds();
+            for (let i = 0; i < 5; i++) {
+                if (state.foods.length < 30) {
+                    state.foods.push({
+                        x: clamp(width * 0.5 + rand(-50, 50), 30, width - 30),
+                        y: WATER_TOP_Y + rand(6, 18),
+                        z: rand(-0.26, 0.26),
+                        vy: rand(24, 38),
+                        swayPhase: rand(0, 6),
+                        bottomTimer: 0
+                    });
+                }
+            }
+            state.ripples.push({ x: center.x, y: center.y + 4, r: 6, maxR: 60, alpha: 0.75 });
+        }
+        feederBox.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            tapFeeder();
+        });
+
+        // --- ЭКОНОМИКА, ВРЕМЯ И СОХРАНЕНИЯ ---
+        function applyAlgaeRealTimePass(elapsedSeconds) {
+            const spotsPerDay = 3.6 / (1 + (state.upgrades.filter - 1) * 0.35);
+            const spotsPerSec = spotsPerDay / SECONDS_PER_DAY;
+            state.algaeProgress += elapsedSeconds * spotsPerSec;
+
+            while (state.algaeProgress >= 1.0 && state.algaeSpots.length < 12) {
+                state.algaeProgress -= 1.0;
+                state.algaeSpots.push({
+                    wall: WALLS[Math.floor(Math.random() * WALLS.length)],
+                    u: rand(0.12, 0.88),
+                    v: rand(0.16, 0.86),
+                    radius: rand(26, 42),
+                    opacity: rand(0.38, 0.58)
+                });
+            }
+            if (state.algaeSpots.length >= 12) state.algaeProgress = 0;
+        }
+
+        function simulateTimeJump(seconds) {
+            if (seconds <= 0) return;
+            const capped = Math.min(seconds, SECONDS_PER_DAY * 7);
+            state.fishes.forEach(f => f.applyRealTimePass(capped));
+            state.kelps.forEach(k => k.applyRealTimePass(capped));
+            applyAlgaeRealTimePass(capped);
+            updateCleanlinessUI();
+            updateKelpHud();
+            if (state.selectedFishId) updateFishCardUI();
+            if (!document.getElementById('system-modal').classList.contains('hidden')) {
+                renderResidentsList();
+                updateShopButtons();
+            }
+        }
+
+        function updateKelpHud() {
+            if (state.kelps.length === 0) return;
+            const avgSegs = state.kelps.reduce((acc, k) => acc + k.segments, 0) / state.kelps.length;
+            const avgCm = (avgSegs / 3).toFixed(1);
+            const hudEl = document.getElementById('kelp-cm-hud');
+            if (hudEl) hudEl.textContent = `${avgCm} см`;
+            const shopEl = document.getElementById('kelp-avg-cm');
+            if (shopEl) shopEl.textContent = `${avgCm} см`;
+        }
+
+        function updateCleanlinessUI() {
+            const cleanVal = clamp(100 - state.algaeSpots.length * 8, 0, 100);
+            const el = document.getElementById('clean-percent');
+            el.textContent = `${cleanVal}%`;
+            el.className = cleanVal > 70 ? 'font-bold text-emerald-300' : (cleanVal > 40 ? 'font-bold text-amber-300' : 'font-bold text-rose-400');
+        }
+
+        function addCoins(amount, x = null, y = null) {
+            state.coins += amount;
+            document.getElementById('coin-count').textContent = state.coins;
+            updateShopButtons();
+
+            if (x !== null && y !== null) {
+                const toast = document.createElement('div');
+                toast.className = 'coin-toast';
+                toast.style.left = `${clamp(x, 50, wrapper.clientWidth - 50)}px`;
+                toast.style.top = `${clamp(y, 50, wrapper.clientHeight - 40)}px`;
+                toast.innerHTML = `<span>🪙</span><span>+${amount}</span>`;
+                wrapper.appendChild(toast);
+                setTimeout(() => toast.remove(), 1250);
+            }
+            saveGame();
+        }
+
+        function saveGame() {
+            try {
+                state.savedRealTimestamp = Date.now();
+                const payload = {
+                    coins: state.coins,
+                    isDay: state.isDay,
+                    soundEnabled: state.soundEnabled,
+                    upgrades: state.upgrades,
+                    savedRealTimestamp: state.savedRealTimestamp,
+                    algaeProgress: state.algaeProgress,
+                    fishes: state.fishes.map(f => ({
+                        id: f.id, name: f.name, paletteIndex: f.paletteIndex,
+                        x: f.x, y: f.y, z: f.z, vx: f.vx, vy: f.vy, vz: f.vz,
+                        ageSeconds: f.ageSeconds, hunger: f.hunger, energy: f.energy,
+                        calm: f.calm, trust: f.trust,
+                        traitSpeed: f.traitSpeed, traitBrave: f.traitBrave, traitSocial: f.traitSocial
+                    })),
+                    kelps: state.kelps.map(k => ({ xRatio: width ? k.x / width : 0.5, z: k.z, segments: k.segments })),
+                    snails: state.snails.map(s => ({ wall: s.wall, u: s.u, v: s.v, hue: s.hue })),
+                    algaeSpots: state.algaeSpots.map(a => ({
+                        wall: a.wall, u: a.u, v: a.v, radius: a.radius, opacity: a.opacity
+                    }))
+                };
+                localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+            } catch (e) {}
+        }
+
+        function initCoralsAndShells() {
+            state.corals = [
+                { x: width * 0.16, z: -0.82, radius: 44, cLight: '#38bdf8', cDark: '#0369a1' },
+                { x: width * 0.42, z: -0.78, radius: 38, cLight: '#fb7185', cDark: '#9f1239' },
+                { x: width * 0.82, z: -0.76, radius: 46, cLight: '#fb923c', cDark: '#9a3412' },
+                { x: width * 0.14, z: -0.22, radius: 48, cLight: '#c084fc', cDark: '#6b21a8' },
+                { x: width * 0.84, z: -0.15, radius: 46, cLight: '#facc15', cDark: '#a16207' },
+                { x: width * 0.08, z: 0.72, radius: 52, cLight: '#a855f7', cDark: '#7e22ce' },
+                { x: width * 0.24, z: 0.46, radius: 40, cLight: '#f97316', cDark: '#c2410c' },
+                { x: width * 0.78, z: 0.52, radius: 46, cLight: '#fb7185', cDark: '#be123c' },
+                { x: width * 0.92, z: 0.76, radius: 54, cLight: '#facc15', cDark: '#ca8a04' }
+            ];
+
+            state.shells = [
+                { x: width * 0.22, z: -0.58, size: 16, rot: -0.08, type: 'scallop' },
+                { x: width * 0.72, z: -0.45, size: 17, rot: 0.1, type: 'pearl' },
+                { x: width * 0.34, z: 0.15, size: 16, rot: 0.06, type: 'pearl' },
+                { x: width * 0.65, z: 0.32, size: 15, rot: -0.1, type: 'scallop' },
+                { x: width * 0.18, z: 0.78, size: 15, rot: -0.12, type: 'scallop' },
+                { x: width * 0.84, z: 0.74, size: 17, rot: 0.05, type: 'pearl' }
+            ];
+        }
+
+        function loadGame() {
+            try {
+                const raw = localStorage.getItem(SAVE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+
+                state.coins = typeof data.coins === 'number' ? data.coins : 60;
+                state.isDay = data.isDay !== undefined ? data.isDay : true;
+                state.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
+                state.algaeProgress = typeof data.algaeProgress === 'number' ? data.algaeProgress : 0;
+
+                if (data.upgrades) state.upgrades = { ...state.upgrades, ...data.upgrades };
+                if (Array.isArray(data.fishes) && data.fishes.length > 0) {
+                    state.fishes = data.fishes.map(fd => new Fish(fd));
+                }
+                if (Array.isArray(data.kelps) && data.kelps.length > 0) {
+                    state.kelps = data.kelps.map(kd => new Kelp((kd.xRatio || 0.5) * width, kd.segments, typeof kd.z === 'number' ? kd.z : rand(-0.85, 0.82)));
+                }
+                if (Array.isArray(data.snails) && data.snails.length > 0) {
+                    state.snails = data.snails.map(sd => new GlassSnail(sd));
+                } else {
+                    state.snails = [
+                        new GlassSnail({ wall: 'front', u: 0.25, v: 0.6 }),
+                        new GlassSnail({ wall: 'left', u: 0.45, v: 0.55 }),
+                        new GlassSnail({ wall: 'right', u: 0.6, v: 0.48 }),
+                        new GlassSnail({ wall: 'back', u: 0.52, v: 0.4 })
+                    ];
+                }
+                if (Array.isArray(data.algaeSpots)) {
+                    state.algaeSpots = data.algaeSpots.map(ad => ({
+                        wall: WALLS.includes(ad.wall) ? ad.wall : WALLS[Math.floor(Math.random() * WALLS.length)],
+                        u: typeof ad.u === 'number' ? ad.u : rand(0.15, 0.85),
+                        v: typeof ad.v === 'number' ? ad.v : rand(0.2, 0.8),
+                        radius: ad.radius || 30, opacity: ad.opacity || 0.45
+                    }));
+                }
+
+                initCoralsAndShells();
+
+                if (typeof data.savedRealTimestamp === 'number') {
+                    const offlineSeconds = Math.max(0, (Date.now() - data.savedRealTimestamp) / 1000);
+                    if (offlineSeconds > 5) simulateTimeJump(offlineSeconds);
+                }
+                return state.fishes.length > 0;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function setupDefaultWorld() {
+            state.fishes = [
+                new Fish({ name: 'ДЕЛЬФИН', paletteIndex: 0, x: width * 0.35, y: height * 0.36, z: 0.45, ageSeconds: SECONDS_PER_DAY * 4, hunger: 60, trust: 50 }),
+                new Fish({ name: 'ЗОЛОТИНКА', paletteIndex: 1, x: width * 0.65, y: height * 0.44, z: -0.35, ageSeconds: SECONDS_PER_DAY * 3.5, hunger: 55, trust: 45 }),
+                new Fish({ name: 'КОРАЛЛ', paletteIndex: 2, x: width * 0.48, y: height * 0.30, z: 0.15, ageSeconds: SECONDS_PER_DAY * 0.5, hunger: 50, trust: 40 }),
+                new Fish({ name: 'ЗЕБРА', paletteIndex: 6, x: width * 0.72, y: height * 0.56, z: -0.65, ageSeconds: SECONDS_PER_DAY * 0.3, hunger: 50, trust: 35 })
+            ];
+
+            state.kelps = [];
+            const kelpCount = 16;
+            for (let i = 0; i < kelpCount; i++) {
+                const x = (width / (kelpCount + 1)) * (i + 1) + rand(-12, 12);
+                const z = -0.84 + (i % 4) * 0.52 + rand(-0.14, 0.14);
+                state.kelps.push(new Kelp(x, rand(6.0, 10.0), clamp(z, -0.88, 0.84)));
+            }
+
+            state.snails = [
+                new GlassSnail({ wall: 'front', u: 0.22, v: 0.62, hue: 34 }),
+                new GlassSnail({ wall: 'left', u: 0.45, v: 0.52, hue: 26 }),
+                new GlassSnail({ wall: 'right', u: 0.58, v: 0.46, hue: 40 }),
+                new GlassSnail({ wall: 'back', u: 0.52, v: 0.38, hue: 22 })
+            ];
+
+            initCoralsAndShells();
+
+            state.algaeSpots = [
+                { wall: 'front', u: 0.24, v: 0.46, radius: 32, opacity: 0.45 },
+                { wall: 'left', u: 0.52, v: 0.55, radius: 32, opacity: 0.45 },
+                { wall: 'right', u: 0.44, v: 0.48, radius: 32, opacity: 0.45 },
+                { wall: 'back', u: 0.58, v: 0.38, radius: 34, opacity: 0.42 }
+            ];
+            state.algaeProgress = 0;
+        }
+
+        // --- ЗУМ ДВУМЯ ПАЛЬЦАМИ И ГИРОСКОП ---
+        let isPinching = false;
+        let pinchStartDist = 0;
+        let pinchStartZoom = 1;
+        let pinchMidX = 0;
+        let pinchMidY = 0;
+        let panStartX = 0;
+        let panStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                isPinching = true;
+                state.isPointerDown = false;
+                const t0 = e.touches[0], t1 = e.touches[1];
+                pinchStartDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+                pinchStartZoom = state.camera.targetZoom;
+                pinchMidX = (t0.clientX + t1.clientX) * 0.5;
+                pinchMidY = (t0.clientY + t1.clientY) * 0.5;
+                panStartX = state.camera.targetPanX;
+                panStartY = state.camera.targetPanY;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isPinching && e.touches.length === 2) {
+                e.preventDefault();
+                const t0 = e.touches[0], t1 = e.touches[1];
+                const d = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY) || 1;
+                const newZoom = clamp(pinchStartZoom * (d / pinchStartDist), 1.0, 4.5);
+                state.camera.targetZoom = newZoom;
+
+                const midX = (t0.clientX + t1.clientX) * 0.5;
+                const midY = (t0.clientY + t1.clientY) * 0.5;
+                const maxPanX = width * 0.45 * (newZoom - 1);
+                const maxPanY = height * 0.45 * (newZoom - 1);
+                state.camera.targetPanX = clamp(panStartX + (midX - pinchMidX), -maxPanX, maxPanX);
+                state.camera.targetPanY = clamp(panStartY + (midY - pinchMidY), -maxPanY, maxPanY);
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                isPinching = false;
+                if (state.camera.targetZoom <= 1.05) {
+                    state.camera.targetZoom = 1.0;
+                    state.camera.targetPanX = 0;
+                    state.camera.targetPanY = 0;
+                }
+            }
+        });
+
+        // Колёсико мыши на компьютере для зума
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.18 : -0.18;
+            const newZoom = clamp(state.camera.targetZoom + delta, 1.0, 4.5);
+            state.camera.targetZoom = newZoom;
+            if (newZoom <= 1.02) {
+                state.camera.targetPanX = 0;
+                state.camera.targetPanY = 0;
+            }
+        }, { passive: false });
+
+        // Гироскоп
+        const btnGyro = document.getElementById('btn-gyro');
+        function handleDeviceOrientation(ev) {
+            if (!state.camera.gyroActive) return;
+            const gamma = clamp((ev.gamma || 0) / 35, -1, 1);
+            const beta = clamp(((ev.beta || 45) - 45) / 35, -1, 1);
+            state.camera.gyroX += (gamma - state.camera.gyroX) * 0.15;
+            state.camera.gyroY += (beta - state.camera.gyroY) * 0.15;
+        }
+
+        btnGyro.addEventListener('click', async () => {
+            initAudio();
+            if (state.camera.gyroActive) {
+                state.camera.gyroActive = false;
+                state.camera.gyroX = 0;
+                state.camera.gyroY = 0;
+                btnGyro.classList.remove('active');
+                window.removeEventListener('deviceorientation', handleDeviceOrientation);
+                return;
+            }
+            try {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const perm = await DeviceOrientationEvent.requestPermission();
+                    if (perm !== 'granted') {
+                        spawnFloatingText('Нет доступа к гироскопу', width * 0.5, height * 0.3, '#fb7185');
+                        return;
+                    }
+                }
+                state.camera.gyroActive = true;
+                btnGyro.classList.add('active');
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+                spawnFloatingText('🧭 Наклоняй телефон!', width * 0.5, height * 0.28, '#38bdf8');
+            } catch (err) {
+                state.camera.gyroActive = true;
+                btnGyro.classList.add('active');
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+            }
+        });
+
+        // --- ВЗАИМОДЕЙСТВИЕ С ХОЛСТОМ ---
+        let trimComboCounter = 0;
+
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return screenToWorld(clientX - rect.left, clientY - rect.top);
+        }
+
+        function onPointerDown(e) {
+            if (e.target !== canvas || isPinching) return;
+            if (e.touches && e.touches.length > 1) return;
+            initAudio();
+            e.preventDefault();
+            const pos = getPointerPos(e);
+            state.isPointerDown = true;
+            state.pointerX = pos.x;
+            state.pointerY = pos.y;
+            trimComboCounter = 0;
+
+            // Постукивание прямо по 3D-кормушке на воде
+            const { pBL, pBR, pFR, pFL } = get3DFeederBounds();
+            if (pos.x >= Math.min(pFL.x, pBL.x) - 10 && pos.x <= Math.max(pFR.x, pBR.x) + 10 &&
+                pos.y >= pBL.y - 10 && pos.y <= pFL.y + 18) {
+                tapFeeder();
+                return;
+            }
+
+            if (state.toolMode === 'hand') {
+                const sortedByFront = [...state.fishes].sort((a, b) => b.z - a.z);
+                for (const f of sortedByFront) {
+                    const sp = f.screenPos;
+                    if (dist(pos.x, pos.y, sp.x, sp.y) <= Math.max(22, f.size * 2.1)) {
+                        playSound('plop');
+                        openFishCard(f.id);
+                        return;
+                    }
+                }
+
+                if (state.selectedFishId) {
+                    closeFishCard();
+                    return;
+                }
+
+                // Стук по стеклу
+                playSound('plop');
+                state.ripples.push({ x: pos.x, y: pos.y, r: 4, maxR: 75, alpha: 0.9 });
+                state.fishes.forEach(f => {
+                    const sp = f.screenPos;
+                    if (dist(pos.x, pos.y, sp.x, sp.y) < 250) {
+                        f.scareFrom(pos.x, pos.y);
+                    }
+                });
+                saveGame();
+            } else if (state.toolMode === 'trim') {
+                performTrimAt(pos.x, pos.y);
+            } else if (state.toolMode === 'clean') {
+                performCleanAt(pos.x, pos.y);
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!state.isPointerDown || isPinching) return;
+            if (e.touches && e.touches.length > 1) return;
+            e.preventDefault();
+            const pos = getPointerPos(e);
+            state.pointerX = pos.x;
+            state.pointerY = pos.y;
+
+            if (state.toolMode === 'trim' || (state.toolMode === 'hand' && pos.y > height * 0.62)) {
+                performTrimAt(pos.x, pos.y);
+            }
+            if (state.toolMode === 'clean') {
+                performCleanAt(pos.x, pos.y);
+            }
+        }
+
+        function onPointerUp() {
+            state.isPointerDown = false;
+        }
+
+        function performTrimAt(x, y) {
+            let cutAny = false;
+            for (const k of state.kelps) {
+                if (k.tryTrim(x, y)) cutAny = true;
+            }
+            if (cutAny) {
+                trimComboCounter++;
+                playSound('cut');
+                updateKelpHud();
+                if (trimComboCounter % 2 === 1) {
+                    addCoins(25, x, y - 28);
+                }
+            }
+        }
+
+        function performCleanAt(x, y) {
+            for (let i = state.algaeSpots.length - 1; i >= 0; i--) {
+                const spot = state.algaeSpots[i];
+                const p3 = getWall3DPos(spot.wall, spot.u, spot.v);
+                const sp = project3D(p3.x, p3.y, p3.z);
+                if (dist(x, y, sp.x, sp.y) < spot.radius * sp.scale + 28) {
+                    spot.opacity -= 0.09;
+                    playSound('clean');
+                    state.bubbles.push({
+                        x: p3.x + rand(-10, 10),
+                        y: p3.y + rand(-10, 10),
+                        z: p3.z,
+                        r: rand(2, 4),
+                        vy: rand(40, 70),
+                        phase: rand(0, 6)
+                    });
+                    if (spot.opacity <= 0.05) {
+                        state.algaeSpots.splice(i, 1);
+                        playSound('coin');
+                        addCoins(15, sp.x, sp.y);
+                        updateCleanlinessUI();
+                    }
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+        canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+
+        // --- КАРТОЧКА РЫБКИ И СИСТЕМНОЕ МЕНЮ ---
+        const fishCard = document.getElementById('fish-card');
+        const systemModal = document.getElementById('system-modal');
+        const residentsListEl = document.getElementById('residents-list');
+
+        function renderSegBar(containerId, value, activeColor) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const totalSegs = 6;
+            const activeSegs = Math.round((clamp(value, 0, 100) / 100) * totalSegs);
+            container.innerHTML = '';
+            for (let i = 0; i < totalSegs; i++) {
+                const div = document.createElement('div');
+                div.className = 'seg-block';
+                if (i < activeSegs) {
+                    div.style.backgroundColor = activeColor;
+                    div.style.boxShadow = `0 0 5px ${activeColor}`;
+                }
+                container.appendChild(div);
+            }
+        }
+
+        function openFishCard(fishId) {
+            state.selectedFishId = fishId;
+            fishCard.classList.remove('hidden');
+            updateFishCardUI();
+        }
+
+        function closeFishCard() {
+            state.selectedFishId = null;
+            fishCard.classList.add('hidden');
+        }
+
+        function cycleSelectedFish(dir) {
+            if (state.fishes.length === 0) return;
+            const idx = state.fishes.findIndex(f => f.id === state.selectedFishId);
+            const nextIdx = (idx + dir + state.fishes.length) % state.fishes.length;
+            state.selectedFishId = state.fishes[nextIdx].id;
+            updateFishCardUI();
+        }
+
+        document.getElementById('btn-prev-fish').addEventListener('click', () => cycleSelectedFish(-1));
+        document.getElementById('btn-next-fish').addEventListener('click', () => cycleSelectedFish(1));
+
+        function updateFishCardUI() {
+            if (!state.selectedFishId) return;
+            const idx = state.fishes.findIndex(item => item.id === state.selectedFishId);
+            if (idx === -1) { closeFishCard(); return; }
+            const f = state.fishes[idx];
+
+            document.getElementById('card-fish-name').textContent = f.name;
+            document.getElementById('card-fish-index').textContent = `${idx + 1}/${state.fishes.length}`;
+            document.getElementById('card-fish-icon').textContent = f.isFry ? '🐡' : '🐠';
+
+            const stageEl = document.getElementById('card-fish-stage');
+            stageEl.textContent = f.isFry ? 'Малёк' : 'Взрослая';
+            stageEl.className = f.isFry ? 'text-amber-300 ml-1' : 'text-cyan-300 ml-1';
+
+            const stomachEl = document.getElementById('card-fish-stomach');
+            const hRound = Math.round(f.hunger);
+            if (f.isFull) {
+                stomachEl.textContent = `Сыта (${hRound}%)`;
+                stomachEl.className = 'text-emerald-400 ml-1';
+            } else if (hRound < 30) {
+                stomachEl.textContent = `Голодна (${hRound}%)`;
+                stomachEl.className = 'text-rose-400 ml-1';
+            } else {
+                const pelletsLeft = Math.max(1, Math.ceil((95 - f.hunger) / f.nutritionPerPellet));
+                stomachEl.textContent = `${hRound}% (ещё ~${pelletsLeft} гран.)`;
+                stomachEl.className = 'text-yellow-300 ml-1';
+            }
+
+            renderSegBar('bar-hunger', f.hunger, '#4ade80');
+            renderSegBar('bar-energy', f.energy, '#facc15');
+            renderSegBar('bar-calm', f.calm, '#38bdf8');
+            renderSegBar('bar-trust', f.trust, '#fb7185');
+
+            document.getElementById('trait-speed').style.left = `${f.traitSpeed}%`;
+            document.getElementById('trait-brave').style.left = `${f.traitBrave}%`;
+            document.getElementById('trait-social').style.left = `${f.traitSocial}%`;
+
+            const days = Math.max(1, Math.floor(f.ageSeconds / SECONDS_PER_DAY) + 1);
+            document.getElementById('card-fish-age').textContent = `${days} дн.`;
+
+            const statusEl = document.getElementById('card-fish-status');
+            if (f.hunger < 25) {
+                statusEl.textContent = 'Хочет кушать!';
+                statusEl.className = 'text-rose-400 font-bold';
+            } else if (f.isFull) {
+                statusEl.textContent = 'Сыта и довольна';
+                statusEl.className = 'text-emerald-400 font-bold';
+            } else if (f.trust > 75) {
+                statusEl.textContent = 'Ручная ❤️';
+                statusEl.className = 'text-pink-400 font-bold';
+            } else {
+                statusEl.textContent = 'Хороший аппетит';
+                statusEl.className = 'text-cyan-300 font-bold';
+            }
+        }
+
+        document.getElementById('btn-rename-fish').addEventListener('click', () => {
+            const f = state.fishes.find(item => item.id === state.selectedFishId);
+            if (!f) return;
+            const currentIdx = DEFAULT_NAMES.indexOf(f.name);
+            f.name = DEFAULT_NAMES[(currentIdx + 1) % DEFAULT_NAMES.length];
+            updateFishCardUI();
+            saveGame();
+        });
+
+        document.getElementById('btn-close-card').addEventListener('click', closeFishCard);
+        document.getElementById('btn-card-more').addEventListener('click', () => {
+            closeFishCard();
+            openSystemModal('fishes');
+        });
+
+        function openSystemModal(tab = 'fishes') {
+            systemModal.classList.remove('hidden');
+            switchModalTab(tab);
+            renderResidentsList();
+            updateShopButtons();
+        }
+
+        function closeSystemModal() {
+            systemModal.classList.add('hidden');
+            document.getElementById('reset-confirm-box').classList.add('hidden');
+        }
+
+        function switchModalTab(tab) {
+            const tabs = {
+                fishes: document.getElementById('tab-fishes'),
+                upgrades: document.getElementById('tab-upgrades'),
+                settings: document.getElementById('tab-settings')
+            };
+            const navs = {
+                fishes: document.getElementById('nav-fishes'),
+                upgrades: document.getElementById('nav-upgrades'),
+                settings: document.getElementById('nav-settings')
+            };
+
+            Object.keys(tabs).forEach(k => {
+                if (k === tab) {
+                    tabs[k].classList.remove('hidden');
+                    navs[k].classList.remove('!bg-slate-800');
+                } else {
+                    tabs[k].classList.add('hidden');
+                    navs[k].classList.add('!bg-slate-800');
+                }
+            });
+        }
+
+        document.getElementById('btn-scroll-up').addEventListener('click', () => {
+            residentsListEl.scrollBy({ top: -110, behavior: 'smooth' });
+        });
+        document.getElementById('btn-scroll-down').addEventListener('click', () => {
+            residentsListEl.scrollBy({ top: 110, behavior: 'smooth' });
+        });
+
+        function renderResidentsList() {
+            residentsListEl.innerHTML = '';
+            state.fishes.forEach((f, idx) => {
+                const pal = FISH_PALETTES[f.paletteIndex % FISH_PALETTES.length];
+                const hRound = Math.round(f.hunger);
+                const stageBadge = f.isFry
+                    ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-amber-300 text-[10px]">Малёк</span>`
+                    : `<span class="px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-[10px]">Взрослая</span>`;
+
+                const satietyBadge = f.isFull
+                    ? `<span class="text-emerald-400 font-bold">Сыта (${hRound}%)</span>`
+                    : (hRound < 30 ? `<span class="text-rose-400 font-bold">Голодна (${hRound}%)</span>` : `<span class="text-yellow-300">${hRound}%</span>`);
+
+                const row = document.createElement('div');
+                row.className = 'bg-slate-900/95 border border-slate-700/90 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-[155px]">
+                        <span class="text-slate-500 font-bold text-[11px] w-4">${idx + 1}.</span>
+                        <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:${pal.body}; box-shadow: 0 0 6px ${pal.body}"></span>
+                        <span class="font-black text-white">${f.name}</span>
+                        ${stageBadge}
+                    </div>
+                    <div class="flex items-center gap-2.5 text-[11px] ml-auto">
+                        <div>🍔 ${satietyBadge}</div>
+                        <button class="action-btn !py-1 !px-2.5 !text-[10px]">Карточка</button>
+                    </div>
+                `;
+                row.querySelector('button').addEventListener('click', () => {
+                    closeSystemModal();
+                    openFishCard(f.id);
+                });
+                residentsListEl.appendChild(row);
+            });
+
+            document.getElementById('roster-count').textContent = state.fishes.length;
+            document.getElementById('hud-fish-counter').textContent = `${state.fishes.length}/20`;
+            document.getElementById('kelp-count-label').textContent = state.kelps.length;
+            document.getElementById('fish-count-label').textContent = state.fishes.length;
+            updateKelpHud();
+        }
+
+        function updateShopButtons() {
+            document.getElementById('coin-count').textContent = state.coins;
+            document.getElementById('hud-fish-counter').textContent = `${state.fishes.length}/20`;
+
+            const btnKelp = document.getElementById('btn-buy-kelp');
+            btnKelp.disabled = state.coins < 40 || state.kelps.length >= 28;
+            btnKelp.textContent = state.kelps.length >= 28 ? 'МАКС' : '+ 40 🪙';
+
+            const canBuyFish = state.coins >= 75 && state.fishes.length < 20;
+            const fishBtnText = state.fishes.length >= 20 ? 'МАКС (20)' : '+ 75 🪙';
+            ['btn-buy-fish', 'btn-buy-fish-roster'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = !canBuyFish;
+                    el.textContent = fishBtnText;
+                }
+            });
+
+            const costs = {
+                filter: state.upgrades.filter * 50,
+                fertilizer: state.upgrades.fertilizer * 60,
+                food: state.upgrades.food * 80,
+                decor: state.upgrades.decor * 100
+            };
+
+            document.getElementById('lvl-filter').textContent = `Ур.${state.upgrades.filter}`;
+            document.getElementById('cost-filter').textContent = state.upgrades.filter >= 5 ? 'МАКС' : `${costs.filter} 🪙`;
+
+            document.getElementById('lvl-fert').textContent = `Ур.${state.upgrades.fertilizer}`;
+            document.getElementById('cost-fert').textContent = state.upgrades.fertilizer >= 5 ? 'МАКС' : `${costs.fertilizer} 🪙`;
+
+            document.getElementById('lvl-food').textContent = `Ур.${state.upgrades.food}`;
+            document.getElementById('cost-food').textContent = state.upgrades.food >= 5 ? 'МАКС' : `${costs.food} 🪙`;
+
+            document.getElementById('lvl-decor').textContent = `Ур.${state.upgrades.decor}`;
+            document.getElementById('cost-decor').textContent = state.upgrades.decor >= 5 ? 'МАКС' : `${costs.decor} 🪙`;
+        }
+
+        // Инструменты
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                initAudio();
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.toolMode = btn.getAttribute('data-mode');
+            });
+        });
+
+        // День / Ночь
+        const btnLight = document.getElementById('btn-light');
+        function applyLightUI() {
+            btnLight.innerHTML = `<span>${state.isDay ? '☀️' : '🌙'}</span>`;
+            btnLight.classList.toggle('active', !state.isDay);
+        }
+        btnLight.addEventListener('click', () => {
+            initAudio();
+            state.isDay = !state.isDay;
+            playSound('plop');
+            applyLightUI();
+            saveGame();
+        });
+
+        // Кнопки меню
+        document.getElementById('btn-open-fishes').addEventListener('click', () => openSystemModal('fishes'));
+        document.getElementById('btn-open-hub').addEventListener('click', () => openSystemModal('upgrades'));
+        document.getElementById('nav-fishes').addEventListener('click', () => { switchModalTab('fishes'); renderResidentsList(); });
+        document.getElementById('nav-upgrades').addEventListener('click', () => switchModalTab('upgrades'));
+        document.getElementById('nav-settings').addEventListener('click', () => switchModalTab('settings'));
+        document.getElementById('nav-close').addEventListener('click', closeSystemModal);
+
+        // Покупки
+        document.getElementById('btn-buy-kelp').addEventListener('click', () => {
+            if (state.coins >= 40 && state.kelps.length < 28) {
+                state.coins -= 40;
+                state.kelps.push(new Kelp(rand(30, width - 30), 7, rand(-0.85, 0.82)));
+                playSound('coin');
+                renderResidentsList();
+                updateShopButtons();
+                saveGame();
+            }
+        });
+
+        function buyNewFry() {
+            if (state.coins >= 75 && state.fishes.length < 20) {
+                state.coins -= 75;
+                const usedNames = state.fishes.map(f => f.name);
+                const freeNames = DEFAULT_NAMES.filter(n => !usedNames.includes(n));
+                const newName = freeNames.length > 0 ? freeNames[0] : `МАЛЁК-${state.fishes.length + 1}`;
+                state.fishes.push(new Fish({
+                    name: newName,
+                    ageSeconds: 0,
+                    hunger: 50,
+                    y: height * 0.34,
+                    z: rand(-0.65, 0.65)
+                }));
+                playSound('coin');
+                renderResidentsList();
+                updateShopButtons();
+                saveGame();
+            }
+        }
+        document.getElementById('btn-buy-fish').addEventListener('click', buyNewFry);
+        document.getElementById('btn-buy-fish-roster').addEventListener('click', buyNewFry);
+
+        function bindUpgrade(btnId, key, baseCost) {
+            document.getElementById(btnId).addEventListener('click', () => {
+                const lvl = state.upgrades[key];
+                const cost = lvl * baseCost;
+                if (lvl < 5 && state.coins >= cost) {
+                    state.coins -= cost;
+                    state.upgrades[key]++;
+                    if (key === 'filter' && state.snails.length < 8) {
+                        state.snails.push(new GlassSnail());
+                    }
+                    playSound('coin');
+                    updateShopButtons();
+                    saveGame();
+                }
+            });
+        }
+        bindUpgrade('upg-filter', 'filter', 50);
+        bindUpgrade('upg-fertilizer', 'fertilizer', 60);
+        bindUpgrade('upg-food', 'food', 80);
+        bindUpgrade('upg-decor', 'decor', 100);
+
+        // Опции
+        document.getElementById('btn-skip-time').addEventListener('click', () => {
+            simulateTimeJump(6 * 3600);
+            playSound('coin');
+            saveGame();
+            spawnFloatingText('⏩ Прошло 6 часов!', width * 0.5, height * 0.45, '#facc15');
+        });
+
+        const btnSound = document.getElementById('btn-toggle-sound');
+        function applySoundUI() {
+            btnSound.textContent = state.soundEnabled ? 'ВКЛ 🔊' : 'ВЫКЛ 🔇';
+        }
+        btnSound.addEventListener('click', () => {
+            state.soundEnabled = !state.soundEnabled;
+            applySoundUI();
+            saveGame();
+        });
+
+        document.getElementById('btn-reset-save').addEventListener('click', () => {
+            document.getElementById('reset-confirm-box').classList.remove('hidden');
+        });
+        document.getElementById('btn-confirm-reset-no').addEventListener('click', () => {
+            document.getElementById('reset-confirm-box').classList.add('hidden');
+        });
+        document.getElementById('btn-confirm-reset-yes').addEventListener('click', () => {
+            try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+            state.coins = 60;
+            state.isDay = true;
+            state.upgrades = { filter: 1, fertilizer: 1, food: 1, decor: 1 };
+            setupDefaultWorld();
+            closeSystemModal();
+            updateShopButtons();
+            updateCleanlinessUI();
+            updateKelpHud();
+            applyLightUI();
+            saveGame();
+        });
+
+        // --- ГЛАВНЫЙ ЦИКЛ ОТРИСОВКИ (ПОЛНАЯ 3D Z-СОРТИРОВКА) ---
+        let cardRefreshTimer = 0;
+
+        function gameLoop(now) {
+            const dt = clamp((now - state.lastFrameTime) / 1000, 0.001, 0.1);
+            state.lastFrameTime = now;
+
+            if (state.feederShake > 0) {
+                state.feederShake = Math.max(0, state.feederShake - dt * 3.5);
+            }
+
+            state.camera.zoom += (state.camera.targetZoom - state.camera.zoom) * Math.min(1, dt * 10);
+            state.camera.panX += (state.camera.targetPanX - state.camera.panX) * Math.min(1, dt * 10);
+            state.camera.panY += (state.camera.targetPanY - state.camera.panY) * Math.min(1, dt * 10);
+
+            const camOffsetX = state.camera.panX + (state.camera.gyroActive ? state.camera.gyroX * 48 : 0);
+            const camOffsetY = state.camera.panY + (state.camera.gyroActive ? state.camera.gyroY * 36 : 0);
+
+            ctx.save();
+            ctx.translate(width * 0.5 + camOffsetX, height * 0.5 + camOffsetY);
+            ctx.scale(state.camera.zoom, state.camera.zoom);
+            ctx.translate(-width * 0.5, -height * 0.5);
+
+            // 1. 3D-комната аквариума
+            drawZooReefRoom(ctx);
+
+            // 2. Обновление всех объектов
+            if (state.bubbles.length < 28 && Math.random() < 0.16) {
+                state.bubbles.push({
+                    x: rand(25, width - 25),
+                    y: getGroundY(),
+                    z: rand(-0.85, 0.85),
+                    r: rand(1.5, 3.8),
+                    vy: rand(22, 48),
+                    phase: rand(0, Math.PI * 2)
+                });
+            }
+            for (let i = state.bubbles.length - 1; i >= 0; i--) {
+                const b = state.bubbles[i];
+                b.y -= b.vy * dt;
+                b.phase += dt * 3;
+                if (b.y < WATER_TOP_Y + 2) state.bubbles.splice(i, 1);
+            }
+
+            for (const k of state.kelps) k.update(dt);
+
+            for (let i = state.foods.length - 1; i >= 0; i--) {
+                const f = state.foods[i];
+                if (f.y < getGroundY() - 6) {
+                    f.y += f.vy * dt;
+                    f.swayPhase = (f.swayPhase || 0) + dt * 3;
+                    f.x += Math.sin(f.swayPhase) * 0.25;
+                } else {
+                    f.bottomTimer = (f.bottomTimer || 0) + dt;
+                }
+                if (f.bottomTimer > 5) state.foods.splice(i, 1);
+            }
+
+            for (const fish of state.fishes) fish.update(dt);
+            applyAlgaeRealTimePass(dt);
+            for (const snail of state.snails) snail.update(dt);
+
+            // 3. Единая очередь 3D-отрисовки по глубине Z
+            const renderables = [];
+
+            for (const spot of state.algaeSpots) {
+                const p3 = getWall3DPos(spot.wall, spot.u, spot.v);
+                renderables.push({
+                    z: p3.z - 0.01,
+                    draw: () => {
+                        const sp = project3D(p3.x, p3.y, p3.z);
+                        const r = spot.radius * sp.scale;
+                        const isSide = (spot.wall === 'left' || spot.wall === 'right');
+                        ctx.save();
+                        ctx.translate(sp.x, sp.y);
+                        if (isSide) ctx.scale(0.45, 1);
+                        const g = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+                        g.addColorStop(0, `rgba(74, 222, 128, ${spot.opacity})`);
+                        g.addColorStop(0.6, `rgba(34, 197, 94, ${spot.opacity * 0.5})`);
+                        g.addColorStop(1, 'rgba(34, 197, 94, 0)');
+                        ctx.fillStyle = g;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                });
+            }
+
+            for (const snail of state.snails) {
+                renderables.push({ z: snail.pos3D.z, draw: () => snail.draw(ctx) });
+            }
+
+            for (const c of state.corals) {
+                renderables.push({ z: c.z, draw: () => drawCoralBush(ctx, c) });
+            }
+            for (const sh of state.shells) {
+                renderables.push({ z: sh.z, draw: () => drawSeashell(ctx, sh) });
+            }
+
+            renderables.push({ z: -0.18, draw: () => drawShipwreck(ctx, -0.18) });
+            renderables.push({ z: 0.0, draw: () => draw3DWaterFeeder(ctx) });
+
+            for (const k of state.kelps) {
+                renderables.push({ z: k.z, draw: () => k.draw(ctx) });
+            }
+
+            for (const b of state.bubbles) {
+                renderables.push({
+                    z: b.z !== undefined ? b.z : 0,
+                    draw: () => {
+                        const bp = project3D(b.x + Math.sin(b.phase) * 3.5, b.y, b.z || 0);
+                        ctx.strokeStyle = 'rgba(224, 242, 254, 0.5)';
+                        ctx.fillStyle = 'rgba(186, 230, 253, 0.22)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(bp.x, bp.y, b.r * bp.scale, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            for (const f of state.foods) {
+                renderables.push({
+                    z: f.z !== undefined ? f.z : 0,
+                    draw: () => {
+                        const fProj = project3D(f.x, f.y, f.z || 0);
+                        const alpha = f.bottomTimer ? Math.max(0, 1 - f.bottomTimer / 5) : 1;
+                        ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`;
+                        ctx.strokeStyle = `rgba(202, 138, 4, ${alpha})`;
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(fProj.x, fProj.y, 4.6 * fProj.scale, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            for (const fish of state.fishes) {
+                renderables.push({ z: fish.z, draw: () => fish.draw(ctx) });
+            }
+
+            renderables.sort((a, b) => a.z - b.z);
+            for (const item of renderables) item.draw();
+
+            // 4. Поверхностные эффекты
+            for (let i = state.cutParticles.length - 1; i >= 0; i--) {
+                const p = state.cutParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.05;
+                p.life -= dt * 1.4;
+                if (p.life <= 0) { state.cutParticles.splice(i, 1); continue; }
+                ctx.fillStyle = `rgba(132, 204, 22, ${p.life})`;
+                ctx.fillRect(p.x, p.y, 4, 7);
+            }
+
+            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = state.floatingTexts[i];
+                ft.y -= dt * 22;
+                ft.life -= dt;
+                if (ft.life <= 0) { state.floatingTexts.splice(i, 1); continue; }
+                ctx.save();
+                ctx.font = 'bold 13px Rubik, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = ft.color;
+                ctx.globalAlpha = Math.min(1, ft.life);
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 4;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+
+            for (let i = state.ripples.length - 1; i >= 0; i--) {
+                const rp = state.ripples[i];
+                rp.r += dt * 110;
+                rp.alpha -= dt * 1.3;
+                if (rp.alpha <= 0) { state.ripples.splice(i, 1); continue; }
+                ctx.strokeStyle = `rgba(125, 211, 252, ${rp.alpha})`;
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            if (state.isPointerDown && (state.toolMode === 'trim' || state.toolMode === 'clean')) {
+                ctx.strokeStyle = state.toolMode === 'trim' ? 'rgba(132, 204, 22, 0.8)' : 'rgba(56, 189, 248, 0.8)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(state.pointerX, state.pointerY, 16, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            cardRefreshTimer += dt;
+            if (cardRefreshTimer > 0.4) {
+                cardRefreshTimer = 0;
+                if (state.selectedFishId) updateFishCardUI();
+                updateKelpHud();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            const loaded = loadGame();
+            if (!loaded) {
+                setupDefaultWorld();
+            }
+
+            applyLightUI();
+            applySoundUI();
+            updateShopButtons();
+            updateCleanlinessUI();
+            updateKelpHud();
+
+            setInterval(() => saveGame(), 4000);
+            window.addEventListener('beforeunload', () => saveGame());
+
+            state.lastFrameTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
